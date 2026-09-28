@@ -109,23 +109,15 @@ def test_empty_feature_list_raises_route_not_found():
 
 
 @responses.activate
-def test_hgv_route_too_long_falls_back_to_driving_car():
-    car_url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
+def test_a_point_not_found_error_raises_route_not_found_without_retrying():
     responses.add(
         responses.POST,
         DIRECTIONS_URL,
-        json={"error": {"code": 2010, "message": "distance exceeds maximum"}},
-        status=500,
-    )
-    responses.add(
-        responses.POST,
-        car_url,
-        json=geojson_response([[-87.6, 41.8], [-105.0, 39.7]]),
-        status=200,
+        json={"error": {"code": 2010, "message": "Could not find routable point"}},
+        status=404,
     )
 
-    route = make_client().get_route((41.8, -87.6), (39.7, -105.0))
+    with pytest.raises(RouteNotFound):
+        make_client().get_route((41.8, -87.6), (39.7, -105.0))
 
-    assert route.distance_miles > 0
-    assert len(responses.calls) == 2
-    assert responses.calls[1].request.url == car_url
+    assert len(responses.calls) == 1
