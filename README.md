@@ -1,6 +1,6 @@
 # Fuel Route Planner
 
-![CI](https://github.com/silentwraith7/fuel-route-planner/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/sonu-antony/fuel-route-planner/actions/workflows/ci.yml/badge.svg)
 
 A Django REST API that takes a start and finish location in the USA, returns the driving
 route, the cost-optimal fuel stops along it, and the total fuel cost. Given a maximum vehicle
