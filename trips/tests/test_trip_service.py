@@ -170,3 +170,36 @@ def test_an_unreachable_route_propagates_unreachable_route():
             city_lookup=CityLookup({}),
             config=make_config(),
         )
+
+
+@pytest.mark.django_db
+def test_queries_differing_only_in_comma_spacing_share_a_cache_entry():
+    finish = miles_north(START, 50)
+    Station.objects.create(
+        opis_id=1,
+        name="MIDWAY FUEL",
+        address="I-1",
+        city="Somewhere",
+        state="KS",
+        rack_id=1,
+        price_per_gallon="3.199",
+        latitude=miles_east(START, 1)[0],
+        longitude=miles_east(START, 1)[1],
+        geocode_source=Station.GeocodeSource.CITY_CENTROID,
+    )
+    route = Route(coordinates=[START, finish], distance_miles=50.0, duration_seconds=3000)
+    routing_client = FakeRoutingClient(route)
+    shared = {
+        "start_fuel_gallons": 0.0,
+        "routing_client": routing_client,
+        "city_lookup": CityLookup({}),
+        "config": make_config(),
+    }
+
+    plan_trip(start_query="39.0,-98.0", finish_query=f"{finish[0]},{finish[1]}", **shared)
+    second = plan_trip(
+        start_query="39.0 , -98.0", finish_query=f"{finish[0]}, {finish[1]}", **shared
+    )
+
+    assert routing_client.call_count == 1
+    assert second.cached is True
