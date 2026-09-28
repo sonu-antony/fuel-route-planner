@@ -1,6 +1,9 @@
 import math
 
-from stations.services.spatial_index import EARTH_RADIUS_MILES, SpatialIndex
+import pytest
+
+from stations.models import Station
+from stations.services.spatial_index import EARTH_RADIUS_MILES, SpatialIndex, get_index, reset_index
 
 ORIGIN = (0.0, 0.0)
 
@@ -55,3 +58,24 @@ def test_an_empty_station_table_returns_an_empty_result_without_errors():
     results = index.stations_near([ORIGIN], radius_miles=10)
 
     assert results == []
+
+
+@pytest.mark.django_db
+def test_the_spatial_index_is_built_once_across_two_requests(django_assert_num_queries):
+    Station.objects.create(
+        opis_id=1,
+        name="STATION 1",
+        address="I-1",
+        city="Somewhere",
+        state="IL",
+        rack_id=1,
+        price_per_gallon="3.000",
+        latitude=0.0,
+        longitude=0.0,
+        geocode_source=Station.GeocodeSource.CITY_CENTROID,
+    )
+    reset_index()
+
+    with django_assert_num_queries(1):
+        get_index()
+        get_index()
