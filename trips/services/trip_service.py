@@ -1,3 +1,4 @@
+import hashlib
 import time
 import uuid
 from dataclasses import dataclass
@@ -34,7 +35,9 @@ class TripServiceResult:
 def _cache_key(start_query: str, finish_query: str, start_fuel_gallons: float) -> str:
     normalized_start = " ".join(start_query.strip().lower().split())
     normalized_finish = " ".join(finish_query.strip().lower().split())
-    return f"trip-plan:{normalized_start}|{normalized_finish}|{start_fuel_gallons:.2f}"
+    raw_key = f"{normalized_start}|{normalized_finish}|{start_fuel_gallons:.2f}"
+    digest = hashlib.sha256(raw_key.encode()).hexdigest()
+    return f"trip-plan:{digest}"
 
 
 def _serialize_stops(fuel_stops: list[FuelStop]) -> list[dict]:
