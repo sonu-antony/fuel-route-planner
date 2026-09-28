@@ -1,0 +1,121 @@
+{
+  "info": {
+    "name": "Fuel Route Planner",
+    "description": "Django API that plans cost-optimal fuel stops along a US truck route.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "request": {
+        "method": "GET",
+        "url": { "raw": "{{base_url}}/api/v1/health/", "host": ["{{base_url}}"], "path": ["api", "v1", "health", ""] }
+      }
+    },
+    {
+      "name": "Short route (Chicago, IL to St. Louis, MO)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Chicago, IL\",\n  \"finish\": \"St. Louis, MO\",\n  \"start_fuel_gallons\": 0\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/trips/plan/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "trips", "plan", ""]
+        },
+        "description": "Under 500 miles, so the tank comfortably covers the trip: expect a single fuel stop near the start."
+      }
+    },
+    {
+      "name": "Long route (Los Angeles, CA to New York, NY)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"finish\": \"New York, NY\",\n  \"start_fuel_gallons\": 0\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/trips/plan/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "trips", "plan", ""]
+        },
+        "description": "About 2,800 miles: expect several fuel stops. Note meta.routing_calls: 1 and meta.cached: false on this first call."
+      }
+    },
+    {
+      "name": "Long route again (shows caching)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"finish\": \"New York, NY\",\n  \"start_fuel_gallons\": 0\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/trips/plan/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "trips", "plan", ""]
+        },
+        "description": "Identical to the previous request. Expect the same trip id, meta.routing_calls: 0, meta.cached: true, and a much faster response."
+      }
+    },
+    {
+      "name": "Coordinates input",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"41.8781,-87.6298\",\n  \"finish\": \"39.7392,-104.9903\",\n  \"start_fuel_gallons\": 10\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/trips/plan/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "trips", "plan", ""]
+        },
+        "description": "start/finish given as raw \"lat,lng\" pairs instead of city names, plus a non-zero starting fuel."
+      }
+    },
+    {
+      "name": "Unknown city (404)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Nowhereville, ZZ\",\n  \"finish\": \"Denver, CO\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/trips/plan/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "trips", "plan", ""]
+        },
+        "description": "Expect 404 with {\"error\": \"location_not_found\", ...}."
+      }
+    },
+    {
+      "name": "Missing field (400)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Chicago, IL\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/trips/plan/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "trips", "plan", ""]
+        },
+        "description": "finish is missing. Expect 400 with {\"error\": \"validation_error\", ...}."
+      }
+    }
+  ]
+}
