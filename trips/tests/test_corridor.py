@@ -44,13 +44,15 @@ def make_station(opis_id, latitude, longitude, price="3.000"):
 
 @pytest.mark.django_db
 def test_stations_inside_the_corridor_are_returned_with_the_correct_mile_marker():
+    near_start = point_offset_east(ORIGIN, 0.1)
     near_mile_10 = point_offset_east(point_due_north(ORIGIN, 10), 0.1)
-    make_station(1, *near_mile_10)
+    make_station(1, *near_start)
+    make_station(2, *near_mile_10)
     route = [ORIGIN, point_due_north(ORIGIN, 100)]
 
     stops = find_corridor_stops(route, sample_every_miles=2, corridor_miles=5)
 
-    [stop] = stops
+    stop = next(stop for stop in stops if stop.station.opis_id == 2)
     assert stop.mile_marker == pytest.approx(10, abs=0.01)
 
 
