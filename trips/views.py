@@ -1,6 +1,7 @@
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.conf import settings
+from django.shortcuts import get_object_or_404, render
 from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.request import Request
@@ -140,3 +141,8 @@ class TripPlanView(APIView):
 @api_view(["GET"])
 def health(request):
     return Response({"status": "ok"})
+
+
+def trip_map(request, trip_id):
+    trip = get_object_or_404(TripPlan, pk=trip_id)
+    return render(request, "trips/map.html", {"route_geojson": trip.route_geojson})

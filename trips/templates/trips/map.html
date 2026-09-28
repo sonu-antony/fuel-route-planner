@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fuel Route Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+  html, body, #map { height: 100%; margin: 0; }
+  .stop-marker {
+    background: #2563eb;
+    color: #fff;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: bold 12px sans-serif;
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+{{ route_geojson|json_script:"route-data" }}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  const routeData = JSON.parse(document.getElementById("route-data").textContent);
+  const map = L.map("map");
+  let stopIndex = 0;
+
+  const layer = L.geoJSON(routeData, {
+    pointToLayer: function (feature, latlng) {
+      stopIndex += 1;
+      const icon = L.divIcon({ html: String(stopIndex), className: "stop-marker" });
+      const marker = L.marker(latlng, { icon: icon });
+      const props = feature.properties || {};
+      marker.bindPopup(
+        (props.name || "") +
+          "<br>$" + (props.price_per_gallon || "") + "/gal<br>" +
+          (props.gallons || "") + " gal"
+      );
+      return marker;
+    },
+  }).addTo(map);
+
+  if (layer.getBounds().isValid()) {
+    map.fitBounds(layer.getBounds());
+  } else {
+    map.setView([39.5, -98.35], 4);
+  }
+</script>
+</body>
+</html>

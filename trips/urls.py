@@ -5,4 +5,5 @@ from trips import views
 urlpatterns = [
     path("api/v1/health/", views.health, name="health"),
     path("api/v1/trips/plan/", views.TripPlanView.as_view(), name="trip-plan"),
+    path("trips/<uuid:trip_id>/map/", views.trip_map, name="trip-map"),
 ]
