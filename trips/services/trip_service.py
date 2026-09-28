@@ -32,9 +32,13 @@ class TripServiceResult:
     cached: bool
 
 
+def _normalize_query(query: str) -> str:
+    return ",".join(" ".join(part.lower().split()) for part in query.split(","))
+
+
 def _cache_key(start_query: str, finish_query: str, start_fuel_gallons: float) -> str:
-    normalized_start = " ".join(start_query.strip().lower().split())
-    normalized_finish = " ".join(finish_query.strip().lower().split())
+    normalized_start = _normalize_query(start_query)
+    normalized_finish = _normalize_query(finish_query)
     raw_key = f"{normalized_start}|{normalized_finish}|{start_fuel_gallons:.2f}"
     digest = hashlib.sha256(raw_key.encode()).hexdigest()
     return f"trip-plan:{digest}"
