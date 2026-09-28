@@ -157,8 +157,8 @@ def test_the_returned_plan_contains_stops_totals_and_geojson():
 
 @pytest.mark.django_db
 def test_an_unreachable_route_propagates_unreachable_route():
-    finish = miles_north(START, 1000)
-    route = Route(coordinates=[START, finish], distance_miles=1000.0, duration_seconds=60000)
+    finish = miles_north(START, 600)
+    route = Route(coordinates=[START, finish], distance_miles=600.0, duration_seconds=60000)
     routing_client = FakeRoutingClient(route)
 
     with pytest.raises(UnreachableRoute):
