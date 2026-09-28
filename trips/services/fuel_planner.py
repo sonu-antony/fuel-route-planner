@@ -6,6 +6,8 @@ from trips.exceptions import UnreachableRoute
 
 __all__ = ["FuelCandidate", "FuelPlan", "FuelStop", "UnreachableRoute", "plan_fuel"]
 
+NO_FUEL_FOR_SALE = Decimal("Infinity")
+
 
 @dataclass(frozen=True)
 class FuelCandidate:
@@ -37,16 +39,15 @@ def plan_fuel(
     miles_per_gallon: float,
     start_fuel_gallons: float = 0.0,
 ) -> FuelPlan:
-    if not candidates:
-        if start_fuel_gallons * miles_per_gallon >= total_distance_miles:
-            return FuelPlan(stops=[], total_gallons=0.0, total_cost=Decimal("0"))
-        raise UnreachableRoute(f"no stations available for a {total_distance_miles} mile trip")
-
     tank_capacity_miles = tank_capacity_gallons * miles_per_gallon
     destination = FuelCandidate(
         station=None, mile_marker=total_distance_miles, price_per_gallon=Decimal("0")
     )
-    nodes = sorted(candidates, key=lambda candidate: candidate.mile_marker) + [destination]
+    nodes = sorted(candidates, key=lambda candidate: candidate.mile_marker)
+    if not nodes or nodes[0].mile_marker > 0:
+        start = FuelCandidate(station=None, mile_marker=0.0, price_per_gallon=NO_FUEL_FOR_SALE)
+        nodes.insert(0, start)
+    nodes.append(destination)
 
     current_fuel = start_fuel_gallons
     stops: list[FuelStop] = []
@@ -70,6 +71,8 @@ def plan_fuel(
             target_index, target = min(reachable, key=lambda pair: pair[1].price_per_gallon)
             buy = tank_capacity_gallons - current_fuel
 
+        if buy > 0 and node.price_per_gallon == NO_FUEL_FOR_SALE:
+            raise UnreachableRoute("not enough starting fuel to reach the first station")
         if buy > 0:
             gallons = round(buy, 6)
             cost = Decimal(str(gallons)) * node.price_per_gallon
