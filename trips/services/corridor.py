@@ -23,7 +23,9 @@ def find_corridor_stops(
     if not hits:
         return []
 
-    stations = Station.objects.in_bulk(station_id for station_id, _ in hits)
+    stations = Station.objects.only(
+        "name", "address", "city", "state", "latitude", "longitude", "price_per_gallon"
+    ).in_bulk(station_id for station_id, _ in hits)
     stops = [
         CorridorStop(
             mile_marker=resampled[point_index].mile_marker,
