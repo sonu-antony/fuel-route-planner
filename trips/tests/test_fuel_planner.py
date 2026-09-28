@@ -77,6 +77,31 @@ def test_starting_fuel_that_covers_the_whole_trip_gives_zero_stops_and_zero_cost
     assert plan.total_cost == Decimal("0")
 
 
+def test_an_empty_tank_with_the_first_station_beyond_mile_zero_raises_unreachable_route():
+    candidates = [candidate("A", 150.0, "3.00")]
+
+    with pytest.raises(UnreachableRoute):
+        plan_fuel(
+            candidates, total_distance_miles=400, tank_capacity_gallons=50, miles_per_gallon=10
+        )
+
+
+def test_starting_fuel_carries_the_truck_to_a_first_station_beyond_mile_zero():
+    candidates = [candidate("A", 150.0, "3.00")]
+
+    plan = plan_fuel(
+        candidates,
+        total_distance_miles=400,
+        tank_capacity_gallons=50,
+        miles_per_gallon=10,
+        start_fuel_gallons=20,
+    )
+
+    [stop] = plan.stops
+    assert stop.station == "A"
+    assert stop.gallons == pytest.approx(20.0)
+
+
 def brute_force_min_cost(stations, destination_mile, tank_capacity, start_fuel):
     @cache
     def min_cost_from(index, fuel):
