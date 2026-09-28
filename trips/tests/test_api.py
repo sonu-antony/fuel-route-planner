@@ -52,8 +52,8 @@ def make_station():
         state="KS",
         rack_id=1,
         price_per_gallon="3.199",
-        latitude=39.36,
-        longitude=-97.95,
+        latitude=39.0,
+        longitude=-97.98,
         geocode_source=Station.GeocodeSource.CITY_CENTROID,
     )
 

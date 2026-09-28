@@ -66,8 +66,8 @@ def test_a_new_request_calls_the_routing_client_once_and_saves_a_trip_plan():
         state="KS",
         rack_id=1,
         price_per_gallon="3.199",
-        latitude=miles_east(miles_north(START, 25), 0.1)[0],
-        longitude=miles_east(miles_north(START, 25), 0.1)[1],
+        latitude=miles_east(START, 1)[0],
+        longitude=miles_east(START, 1)[1],
         geocode_source=Station.GeocodeSource.CITY_CENTROID,
     )
     route = Route(coordinates=[START, finish], distance_miles=50.0, duration_seconds=3000)
@@ -98,8 +98,8 @@ def test_an_identical_second_request_calls_the_routing_client_zero_times():
         state="KS",
         rack_id=1,
         price_per_gallon="3.199",
-        latitude=miles_east(miles_north(START, 25), 0.1)[0],
-        longitude=miles_east(miles_north(START, 25), 0.1)[1],
+        latitude=miles_east(START, 1)[0],
+        longitude=miles_east(START, 1)[1],
         geocode_source=Station.GeocodeSource.CITY_CENTROID,
     )
     route = Route(coordinates=[START, finish], distance_miles=50.0, duration_seconds=3000)
@@ -133,8 +133,8 @@ def test_the_returned_plan_contains_stops_totals_and_geojson():
         state="KS",
         rack_id=1,
         price_per_gallon="3.199",
-        latitude=miles_east(miles_north(START, 25), 0.1)[0],
-        longitude=miles_east(miles_north(START, 25), 0.1)[1],
+        latitude=miles_east(START, 1)[0],
+        longitude=miles_east(START, 1)[1],
         geocode_source=Station.GeocodeSource.CITY_CENTROID,
     )
     route = Route(coordinates=[START, finish], distance_miles=50.0, duration_seconds=3000)

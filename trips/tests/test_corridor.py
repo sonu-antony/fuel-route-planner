@@ -81,6 +81,17 @@ def test_the_result_is_sorted_by_mile_marker():
 
 
 @pytest.mark.django_db
+def test_a_nearest_station_beyond_the_corridor_width_keeps_its_real_mile_marker():
+    near_mile_50 = point_offset_east(point_due_north(ORIGIN, 50), 0.1)
+    make_station(1, *near_mile_50)
+    route = [ORIGIN, point_due_north(ORIGIN, 100)]
+
+    [stop] = find_corridor_stops(route, sample_every_miles=2, corridor_miles=5)
+
+    assert stop.mile_marker == pytest.approx(50, abs=0.01)
+
+
+@pytest.mark.django_db
 def test_the_station_nearest_the_start_becomes_the_start_node_at_mile_zero():
     near_mile_10 = point_offset_east(point_due_north(ORIGIN, 10), 0.1)
     near_mile_4 = point_offset_east(point_due_north(ORIGIN, 4), 0.1)
