@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+db.sqlite3
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+data/.geocode_cache/
+.idea/
+.vscode/
+.DS_Store
