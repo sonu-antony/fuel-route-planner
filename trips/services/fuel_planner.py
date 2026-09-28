@@ -2,9 +2,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
+from trips.exceptions import UnreachableRoute
 
-class UnreachableRoute(Exception):
-    pass
+__all__ = ["FuelCandidate", "FuelPlan", "FuelStop", "UnreachableRoute", "plan_fuel"]
 
 
 @dataclass(frozen=True)

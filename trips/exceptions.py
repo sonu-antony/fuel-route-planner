@@ -12,3 +12,7 @@ class RoutingUnavailable(Exception):
 
 class RouteNotFound(Exception):
     pass
+
+
+class UnreachableRoute(Exception):
+    pass
