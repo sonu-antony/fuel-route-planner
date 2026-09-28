@@ -5,6 +5,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand
 
 from stations.models import Station
+from stations.services.spatial_index import reset_index
 
 DEFAULT_FILE = Path("data/stations_geocoded.csv")
 
@@ -40,6 +41,8 @@ class Command(BaseCommand):
                 created_count += 1
             else:
                 updated_count += 1
+
+        reset_index()
 
         self.stdout.write(f"created: {created_count}")
         self.stdout.write(f"updated: {updated_count}")
