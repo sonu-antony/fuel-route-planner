@@ -172,6 +172,19 @@ def test_a_cheaper_station_off_the_route_at_the_start_is_reached_by_buying_fuel_
     assert plan.stops[1].station == "B"
 
 
+def test_starting_fuel_must_cover_the_approach_to_an_off_route_first_station():
+    candidates = [candidate("A", 40.0, "3.00", offset_miles=3.0)]
+    arguments = {"total_distance_miles": 100, "tank_capacity_gallons": 50, "miles_per_gallon": 10}
+
+    with pytest.raises(UnreachableRoute, match="at least 4.3"):
+        plan_fuel(candidates, start_fuel_gallons=4.2, **arguments)
+
+    plan = plan_fuel(candidates, start_fuel_gallons=4.3, **arguments)
+    [stop] = plan.stops
+    assert stop.station == "A"
+    assert stop.gallons == pytest.approx(6.3)
+
+
 def brute_force_min_cost(stations, destination_mile, tank_capacity, start_fuel, cost_per_stop):
     @cache
     def min_cost_from(index, fuel):
