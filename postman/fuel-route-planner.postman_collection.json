@@ -29,7 +29,7 @@
           "host": ["{{base_url}}"],
           "path": ["api", "v1", "trips", "plan", ""]
         },
-        "description": "Under 500 miles, so the tank comfortably covers the trip: expect a single fuel stop near the start."
+        "description": "Under 500 miles, so one tank covers the trip: expect one or two fuel stops near the start."
       }
     },
     {
@@ -39,18 +39,35 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"finish\": \"New York, NY\",\n  \"start_fuel_gallons\": 0\n}"
+          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"finish\": \"New York, NY\",\n  \"start_fuel_gallons\": 35\n}"
         },
         "url": {
           "raw": "{{base_url}}/api/v1/trips/plan/",
           "host": ["{{base_url}}"],
           "path": ["api", "v1", "trips", "plan", ""]
         },
-        "description": "About 2,800 miles: expect several fuel stops. Note meta.routing_calls: 1 and meta.cached: false on this first call."
+        "description": "About 2,800 miles: expect several fuel stops. Starts with 35 gallons because the price file has no station within 244 miles of Los Angeles. Note meta.routing_calls: 1 and meta.cached: false on this first call."
       }
     },
     {
       "name": "Long route again (shows caching)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"finish\": \"New York, NY\",\n  \"start_fuel_gallons\": 35\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/v1/trips/plan/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "v1", "trips", "plan", ""]
+        },
+        "description": "Identical to the previous request. Expect the same trip id, meta.routing_calls: 0, meta.cached: true, and a much faster response."
+      }
+    },
+    {
+      "name": "Empty tank too far from a station (422)",
       "request": {
         "method": "POST",
         "header": [{ "key": "Content-Type", "value": "application/json" }],
@@ -63,7 +80,7 @@
           "host": ["{{base_url}}"],
           "path": ["api", "v1", "trips", "plan", ""]
         },
-        "description": "Identical to the previous request. Expect the same trip id, meta.routing_calls: 0, meta.cached: true, and a much faster response."
+        "description": "Expect 422 unreachable_route; detail says where the first station is and how much start_fuel_gallons would fix it."
       }
     },
     {
