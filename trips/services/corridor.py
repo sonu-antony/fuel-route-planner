@@ -45,7 +45,9 @@ def find_corridor_stops(
         id(stop): haversine_miles(start_point, (stop.station.latitude, stop.station.longitude))
         for stop in stops
     }
-    nearest_to_start = min(stops, key=lambda stop: distance_to_start[id(stop)])
+    nearest_to_start = min(
+        stops, key=lambda stop: (distance_to_start[id(stop)], stop.price_per_gallon)
+    )
     if distance_to_start[id(nearest_to_start)] <= corridor_miles:
         stops = [
             CorridorStop(
