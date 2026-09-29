@@ -7,9 +7,9 @@ route, the cost-optimal fuel stops along it, and the total fuel cost. Given a ma
 range, it decides where to refuel and how much to buy so the total spend is minimized. It also
 renders each planned trip as an interactive map.
 
-The approach is **corridor search + greedy refueling**, with one routing API call per new
-trip. See [The approach](#the-approach-corridor-search--greedy-refueling) and
-[Design choices and tradeoffs](#design-choices-and-tradeoffs).
+The approach is **corridor search + dynamic-programming refueling**, with one routing API call
+per new trip. See [The approach](#the-approach-corridor-search--dynamic-programming-refueling)
+and [Design choices and tradeoffs](#design-choices-and-tradeoffs).
 
 ## Setup
 
@@ -103,14 +103,14 @@ Every error response has the shape `{"error": "<code>", "detail": "..."}`.
 | 400    | `validation_error`     | missing field, `start == finish`, fuel outside 0–50 |
 | 404    | `location_not_found`   | start or finish could not be resolved          |
 | 422    | `location_outside_usa` | resolved coordinates are outside the continental USA |
-| 422    | `unreachable_route`    | a gap between fuel stops exceeds vehicle range |
+| 422    | `unreachable_route`    | a gap between stations exceeds the range, or the first station is beyond the starting fuel; `detail` says where, and how much `start_fuel_gallons` would fix it |
 | 502    | `routing_unavailable`  | the routing provider timed out, errored, or returned no route |
 
-## The approach: corridor search + greedy refueling
+## The approach: corridor search + dynamic-programming refueling
 
 In one line: **ask the routing API once for the road, find every priced station within a
-narrow corridor of that road, then walk the road buying fuel only where nothing cheaper is
-within reach.**
+narrow corridor of that road, then pick the stops and gallons that minimize fuel spend plus a
+small fixed cost per stop.**
 
 1. **Resolve locations locally.** `start`/`finish` are parsed as `"lat,lng"` or looked up in a
    bundled US cities table (`stations/services/city_lookup.py`). No geocoding API is called.
@@ -124,13 +124,14 @@ within reach.**
    sample point. Each station gets the mile marker of its nearest sample point. The station
    nearest the start is treated as the first fill-up at mile 0, but only if it is within
    `CORRIDOR_MILES` of the start.
-5. **Greedy refueling** (`trips/services/fuel_planner.py`). At each station: if a cheaper
-   station is within one tank's range, buy just enough to reach it; otherwise fill the tank and
-   go to the cheapest station within range. The destination counts as a free station, so the
-   tank ends empty. This is the classic solution to the fixed-route "gas station problem": fuel
-   bought here is only worth carrying past a station if nothing cheaper can be reached first,
-   which is exactly the rule. `trips/tests/test_fuel_planner.py` checks it against a
-   brute-force dynamic-programming solver on 200 random routes, and the costs always match.
+5. **Refueling plan** (`trips/services/fuel_planner.py`). A dynamic program over
+   (station, fuel on arrival). At each stop the truck either fills the tank or buys just
+   enough to reach the next stop empty; for a fixed set of stops one of those two is always
+   optimal, so the search is exact while only trying a handful of fuel levels per station.
+   Each stop also costs `FUEL_STOP_COST` (default $5, standing in for the driver's time), so
+   the plan skips "drive 2 miles to save 3 cents" stops. The destination counts as a free
+   station, so the tank ends empty. `trips/tests/test_fuel_planner.py` checks the plan against
+   a brute-force solver on 200 random routes, both with and without a stop cost.
 6. **Save and cache.** Stops, totals and the route GeoJSON are saved as a `TripPlan` (which the
    map page reads) and cached for `TRIP_CACHE_SECONDS`.
 
@@ -141,23 +142,25 @@ within reach.**
 | Geocode stations by city and state, offline, and commit the result | ~60% of addresses are highway exits (`I-44, EXIT 283`) that street geocoders miss; offline means zero geocoding calls per request | Station positions are accurate to a few miles, not to the exact pump |
 | 10-mile corridor around the route | Compensates for city-level station positions | Stations up to 10 miles off the road count as "on the route"; detour distance is not charged |
 | Mile marker = nearest resampled point (every 2 miles) | Simple and fast | Mile markers are approximate to about ±1 mile |
-| Greedy refueling instead of a general optimizer | Provably optimal for a fixed route and tank; ~90 lines; verified against brute force | Optimal only among stations near *this* route, not across alternative routes |
+| Dynamic program with a $5 cost per stop | Pure cheapest-fuel planning (the classic greedy) is exact but produces impractical plans: Chicago → Denver had 9 stops, some buying 0.2 gal to reach a station 2 miles on. The stop cost cuts that to 4 stops for 92¢ more; LA → NY (50 gal at start) goes from 17 to 6 stops for $7 (1%) more | Adds about 0.2 s of planning on a 2,800-mile route. `total_cost` is fuel only; set `FUEL_STOP_COST=0` for the strictly cheapest plan. Optimal only among stations near *this* route |
 | Plan to exactly 500 miles of range | Matches the assignment's stated range | No safety margin: a full-range leg plus a detour could run dry in reality |
 | One routing call, cached, plus a saved plan for the map | Meets "call the routing API as little as possible"; the map costs nothing extra | The cache and the KD-tree live in each process's memory; several workers would need a shared cache and PostGIS |
-| OpenRouteService `driving-hgv` (truck) profile, no fallback | Free, and truck-legal roads suit a fleet use case | Routes longer than ORS's ~6,000 km limit fail with `routing_unavailable`; every continental US route fits |
+| OpenRouteService `driving-hgv` (truck) profile, no fallback | Free, and truck-legal roads suit a fleet use case | A route beyond ORS's distance limit for this profile would fail with `routing_unavailable`; a 2,796-mile Los Angeles → New York route works |
 | Full route line returned in the response | The client can draw the exact route | A cross-country response can be several hundred KB; simplifying the line would shrink it |
-| KD-tree (scipy) for the station search | Standard, fast nearest-neighbour search (136 ms cold, including building the index) | Adds numpy/scipy; plain numpy distances would also be fast enough at this data size |
+| KD-tree (scipy) for the station search | Standard, fast nearest-neighbour search over all 6,626 stations | Adds numpy/scipy; plain numpy distances would also be fast enough at this data size |
 
 **Assumptions**
 
 - The truck starts with an empty tank and fills up at the station nearest the start. If no
   station is within `CORRIDOR_MILES` of the start, the trip needs `start_fuel_gallons` to reach
-  the first station, otherwise it returns `unreachable_route`.
+  the first station, otherwise it returns `unreachable_route`. This matters in California: the
+  price file has only 8 CA stations, all near the Mexican border, so a trip from Los Angeles
+  needs at least 24.4 gallons to reach the first station, 244 miles away in Nevada.
 - Fuel can be bought in any fractional amount.
 - When a station ID appears more than once in the price file, the lowest price is kept.
 - Canadian stations are excluded; the assignment is USA-only.
-- Range, mpg, corridor width, sample spacing, routing timeout and cache lifetime are
-  configurable in `.env` (defaults: 500-mile range, 10 mpg).
+- Range, mpg, corridor width, sample spacing, per-stop cost, routing timeout and cache
+  lifetime are configurable in `.env` (defaults: 500-mile range, 10 mpg, $5 per stop).
 
 ## Data preparation
 
@@ -183,18 +186,19 @@ reviewers only need to run `load_stations`, which touches no network.
 
 ## Measured response times
 
-Measured against the full 6,626-station database (Los Angeles → New York, 2,800 miles, 18
-fuel stops), with the OpenRouteService call mocked so the number reflects this service's own
-processing — resampling the route, the KD-tree corridor search, the greedy fuel plan and the
-database write:
+Against the full 6,626-station database, with a live OpenRouteService key:
 
-| Request               | Time      | Target  |
-| ---------------------- | --------- | ------- |
-| Cold (builds the spatial index) | 136 ms | < 1.5 s |
-| Cached                 | 1.0 ms    | < 50 ms |
+| Trip | Distance | Stops | Cold | Cached |
+| --- | --- | --- | --- | --- |
+| Dallas → Houston | 240 mi | 1 | 1.1 s | < 10 ms |
+| Chicago → Denver | 1,008 mi | 4 | 1.6 s | < 10 ms |
+| Phoenix → Atlanta | 1,828 mi | 5 | 2.0 s | < 10 ms |
+| Los Angeles → New York (25 gal at start) | 2,796 mi | 7 | 2.6 s | < 10 ms |
 
-In production, the cold-request time is dominated by the OpenRouteService network round trip,
-which this measurement excludes.
+Most of a cold request is the OpenRouteService round trip. With that call mocked, this
+service's own work on Los Angeles → New York (resampling the route, the KD-tree corridor
+search, the fuel plan and the database write) takes about 260 ms, including building the
+spatial index; a cached request takes about 5 ms.
 
 ## What I would do next
 
@@ -205,6 +209,9 @@ which this measurement excludes.
   corridor-inclusion radius, and keep a configurable fuel reserve instead of planning to an
   empty tank.
 - Simplify the returned route line to shrink cross-country responses.
+- A hard wall-clock deadline on the routing call. `ROUTING_TIMEOUT_SECONDS` bounds each
+  socket read, not the whole request, and one live test stalled for minutes before returning
+  `routing_unavailable`.
 - PostGIS for the spatial index and a shared cache (e.g. Redis) instead of per-process memory,
   so it works correctly across multiple app workers.
 
