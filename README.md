@@ -195,6 +195,8 @@ fuel, including the fuel burned driving off the road to each station.**
 - Canadian stations are excluded; the assignment is USA-only.
 - Range, mpg, corridor width, sample spacing, per-stop cost, routing timeout and cache
   lifetime are configurable in `.env` (defaults: 500-mile range, 10 mpg, no per-stop cost).
+  They are checked at startup: a zero, negative or non-numeric value stops the server with
+  an error naming the setting (`config/env.py`).
 
 ## Data preparation
 
