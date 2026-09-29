@@ -107,14 +107,41 @@ def test_starting_fuel_carries_the_truck_to_a_first_station_beyond_mile_zero():
     assert stop.gallons == pytest.approx(20.0)
 
 
-def brute_force_min_cost(stations, destination_mile, tank_capacity, start_fuel):
+def test_a_cost_per_stop_skips_a_barely_cheaper_station_just_ahead():
+    candidates = [candidate("A", 0.0, "3.00"), candidate("B", 2.0, "2.99")]
+
+    plan = plan_fuel(
+        candidates,
+        total_distance_miles=100,
+        tank_capacity_gallons=50,
+        miles_per_gallon=10,
+        cost_per_stop=5,
+    )
+
+    [stop] = plan.stops
+    assert stop.station == "A"
+    assert stop.gallons == pytest.approx(10.0)
+
+
+def test_stations_at_the_same_mile_marker_are_reduced_to_the_cheapest():
+    candidates = [candidate("A", 0.0, "3.20"), candidate("B", 0.0, "3.10")]
+
+    plan = plan_fuel(
+        candidates, total_distance_miles=100, tank_capacity_gallons=50, miles_per_gallon=10
+    )
+
+    [stop] = plan.stops
+    assert stop.station == "B"
+
+
+def brute_force_min_cost(stations, destination_mile, tank_capacity, start_fuel, cost_per_stop):
     @cache
     def min_cost_from(index, fuel):
         best = None
         mile, price = stations[index]
         for buy in range(0, tank_capacity - fuel + 1):
             new_fuel = fuel + buy
-            buy_cost = buy * price
+            buy_cost = buy * price + (cost_per_stop if buy > 0 else 0)
             reach_limit = mile + new_fuel
             if destination_mile <= reach_limit and (best is None or buy_cost < best):
                 best = buy_cost
@@ -160,7 +187,8 @@ def replay_tank_levels(
     return levels
 
 
-def test_greedy_plan_matches_brute_force_and_holds_its_invariants_on_random_routes():
+@pytest.mark.parametrize("cost_per_stop", [0, 3])
+def test_plan_matches_brute_force_and_holds_its_invariants_on_random_routes(cost_per_stop):
     rng = random.Random(20260101)
     tank_capacity = 10
 
@@ -175,12 +203,13 @@ def test_greedy_plan_matches_brute_force_and_holds_its_invariants_on_random_rout
             total_distance_miles=float(destination_mile),
             tank_capacity_gallons=float(tank_capacity),
             miles_per_gallon=1.0,
+            cost_per_stop=cost_per_stop,
         )
 
         expected_cost = brute_force_min_cost(
-            stations, destination_mile, tank_capacity, start_fuel=0
+            stations, destination_mile, tank_capacity, start_fuel=0, cost_per_stop=cost_per_stop
         )
-        assert plan.total_cost == Decimal(expected_cost)
+        assert plan.total_cost + cost_per_stop * len(plan.stops) == Decimal(expected_cost)
 
         assert plan.total_gallons == pytest.approx(destination_mile)
         assert plan.total_cost == sum((stop.cost for stop in plan.stops), Decimal("0"))

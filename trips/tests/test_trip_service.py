@@ -203,3 +203,36 @@ def test_queries_differing_only_in_comma_spacing_share_a_cache_entry():
 
     assert routing_client.call_count == 1
     assert second.cached is True
+
+
+@pytest.mark.django_db
+def test_the_configured_cost_per_stop_reaches_the_fuel_planner():
+    finish = miles_north(START, 50)
+    for opis_id, point, price in (
+        (1, miles_east(START, 1), "3.199"),
+        (2, miles_north(START, 4), "3.189"),
+    ):
+        Station.objects.create(
+            opis_id=opis_id,
+            name=f"STATION {opis_id}",
+            address="I-1",
+            city="Somewhere",
+            state="KS",
+            rack_id=1,
+            price_per_gallon=price,
+            latitude=point[0],
+            longitude=point[1],
+            geocode_source=Station.GeocodeSource.CITY_CENTROID,
+        )
+    route = Route(coordinates=[START, finish], distance_miles=50.0, duration_seconds=3000)
+
+    result = plan_trip(
+        start_query="39.0,-98.0",
+        finish_query=f"{finish[0]},{finish[1]}",
+        start_fuel_gallons=0.0,
+        routing_client=FakeRoutingClient(route),
+        city_lookup=CityLookup({}),
+        config=make_config(cost_per_stop=5.0),
+    )
+
+    assert len(result.trip.stops) == 1
