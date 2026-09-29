@@ -103,3 +103,26 @@ def test_the_station_nearest_the_start_becomes_the_start_node_at_mile_zero():
 
     assert stops[0].station.opis_id == 2
     assert stops[0].mile_marker == 0.0
+
+
+@pytest.mark.django_db
+def test_each_stop_reports_how_far_it_is_off_the_route():
+    make_station(1, *point_offset_east(ORIGIN, 0.1))
+    make_station(2, *point_offset_east(point_due_north(ORIGIN, 20), 3))
+    route = [ORIGIN, point_due_north(ORIGIN, 100)]
+
+    stops = find_corridor_stops(route, sample_every_miles=2, corridor_miles=5)
+
+    stop = next(stop for stop in stops if stop.station.opis_id == 2)
+    assert stop.offset_miles == pytest.approx(3.0, abs=0.05)
+
+
+@pytest.mark.django_db
+def test_the_start_station_counts_as_on_the_route():
+    make_station(1, *point_offset_east(point_due_north(ORIGIN, 4), 0.1))
+    route = [ORIGIN, point_due_north(ORIGIN, 100)]
+
+    [stop] = find_corridor_stops(route, sample_every_miles=2, corridor_miles=5)
+
+    assert stop.mile_marker == 0.0
+    assert stop.offset_miles == 0.0

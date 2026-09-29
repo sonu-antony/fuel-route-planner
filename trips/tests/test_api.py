@@ -106,6 +106,7 @@ def test_happy_path_returns_200_with_every_documented_field_and_nothing_else(api
         "city",
         "state",
         "mile_marker",
+        "off_route_miles",
         "price_per_gallon",
         "gallons",
         "cost",
