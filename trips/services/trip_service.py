@@ -60,6 +60,7 @@ def _serialize_stops(fuel_stops: list[FuelStop]) -> list[dict]:
                 "latitude": station.latitude,
                 "longitude": station.longitude,
                 "mile_marker": stop.mile_marker,
+                "off_route_miles": stop.offset_miles,
                 "price_per_gallon": str(stop.price_per_gallon),
                 "gallons": stop.gallons,
                 "cost": str(stop.cost),
@@ -134,6 +135,7 @@ def plan_trip(
             station=stop.station,
             mile_marker=stop.mile_marker,
             price_per_gallon=stop.price_per_gallon,
+            offset_miles=stop.offset_miles,
         )
         for stop in corridor_stops
     ]

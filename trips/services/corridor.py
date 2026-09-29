@@ -11,6 +11,7 @@ class CorridorStop:
     mile_marker: float
     price_per_gallon: Decimal
     station: Station
+    offset_miles: float = 0.0
 
 
 def find_corridor_stops(
@@ -31,6 +32,10 @@ def find_corridor_stops(
             mile_marker=resampled[point_index].mile_marker,
             price_per_gallon=stations[station_id].price_per_gallon,
             station=stations[station_id],
+            offset_miles=haversine_miles(
+                sample_points[point_index],
+                (stations[station_id].latitude, stations[station_id].longitude),
+            ),
         )
         for station_id, point_index in hits
     ]
@@ -44,12 +49,15 @@ def find_corridor_stops(
     if distance_to_start[id(nearest_to_start)] <= corridor_miles:
         stops = [
             CorridorStop(
-                mile_marker=0.0, price_per_gallon=stop.price_per_gallon, station=stop.station
+                mile_marker=0.0,
+                price_per_gallon=stop.price_per_gallon,
+                station=stop.station,
+                offset_miles=0.0,
             )
             if stop is nearest_to_start
             else stop
             for stop in stops
         ]
 
-    stops.sort(key=lambda stop: stop.mile_marker)
+    stops.sort(key=lambda stop: (stop.mile_marker, stop.offset_miles))
     return stops

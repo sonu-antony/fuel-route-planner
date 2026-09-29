@@ -47,6 +47,7 @@ def _serialize_trip(
             "city": stop["city"],
             "state": stop["state"],
             "mile_marker": stop["mile_marker"],
+            "off_route_miles": round(stop.get("off_route_miles", 0.0), 1),
             "price_per_gallon": float(stop["price_per_gallon"]),
             "gallons": round(stop["gallons"], 3),
             "cost": _round_money(stop["cost"]),
