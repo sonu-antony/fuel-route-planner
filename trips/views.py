@@ -59,7 +59,7 @@ def _serialize_trip(
         "start": {"query": trip.start_query, "lat": trip.start_lat, "lng": trip.start_lng},
         "finish": {"query": trip.finish_query, "lat": trip.finish_lat, "lng": trip.finish_lng},
         "distance_miles": trip.distance_miles,
-        "total_gallons": round(float(trip.total_gallons), 3),
+        "gallons_purchased": round(float(trip.total_gallons), 3),
         "total_cost": _round_money(trip.total_cost),
         "fuel_stops": fuel_stops,
         "route": trip.route_geojson,
