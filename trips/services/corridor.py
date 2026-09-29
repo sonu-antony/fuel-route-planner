@@ -24,7 +24,7 @@ def find_corridor_stops(
         return []
 
     stations = Station.objects.only(
-        "name", "address", "city", "state", "latitude", "longitude", "price_per_gallon"
+        "opis_id", "name", "address", "city", "state", "latitude", "longitude", "price_per_gallon"
     ).in_bulk(station_id for station_id, _ in hits)
     stops = [
         CorridorStop(

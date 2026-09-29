@@ -16,3 +16,7 @@ class RouteNotFound(Exception):
 
 class UnreachableRoute(Exception):
     pass
+
+
+class SameStartAndFinish(Exception):
+    pass

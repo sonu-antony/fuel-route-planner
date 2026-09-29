@@ -14,6 +14,7 @@ from trips.exceptions import (
     LocationOutsideUSA,
     RouteNotFound,
     RoutingUnavailable,
+    SameStartAndFinish,
     UnreachableRoute,
 )
 from trips.models import TripPlan
@@ -102,6 +103,11 @@ class TripPlanView(APIView):
                 routing_client=routing_client,
                 city_lookup=_get_city_lookup(),
                 config=config,
+            )
+        except SameStartAndFinish as error:
+            return Response(
+                {"error": "validation_error", "detail": str(error)},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except LocationNotFound:
             return Response(

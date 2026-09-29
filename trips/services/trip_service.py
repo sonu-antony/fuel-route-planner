@@ -7,6 +7,7 @@ from decimal import Decimal
 from django.core.cache import cache
 
 from stations.services.city_lookup import CityLookup
+from trips.exceptions import SameStartAndFinish
 from trips.models import TripPlan
 from trips.services.corridor import find_corridor_stops
 from trips.services.fuel_planner import FuelCandidate, FuelStop, plan_fuel
@@ -51,7 +52,7 @@ def _serialize_stops(fuel_stops: list[FuelStop]) -> list[dict]:
         station = stop.station
         serialized.append(
             {
-                "station_id": station.id,
+                "station_id": station.opis_id,
                 "name": station.name,
                 "address": station.address,
                 "city": station.city,
@@ -109,13 +110,17 @@ def plan_trip(
     key = _cache_key(start_query, finish_query, start_fuel_gallons)
 
     cached_id = cache.get(key)
-    if cached_id is not None:
-        trip = TripPlan.objects.get(id=cached_id)
+    cached_trip = TripPlan.objects.filter(id=cached_id).first() if cached_id else None
+    if cached_trip is not None:
         elapsed_ms = (time.monotonic() - start_time) * 1000
-        return TripServiceResult(trip=trip, routing_calls=0, elapsed_ms=elapsed_ms, cached=True)
+        return TripServiceResult(
+            trip=cached_trip, routing_calls=0, elapsed_ms=elapsed_ms, cached=True
+        )
 
     start_coordinates = resolve_location(start_query, city_lookup)
     finish_coordinates = resolve_location(finish_query, city_lookup)
+    if start_coordinates == finish_coordinates:
+        raise SameStartAndFinish("start and finish resolve to the same location")
 
     route = routing_client.get_route(start_coordinates, finish_coordinates)
 
