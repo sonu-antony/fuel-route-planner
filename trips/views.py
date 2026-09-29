@@ -124,9 +124,9 @@ class TripPlanView(APIView):
                 {"error": "unreachable_route", "detail": str(error)},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
-        except (RoutingUnavailable, RouteNotFound):
+        except (RoutingUnavailable, RouteNotFound) as error:
             return Response(
-                {"error": "routing_unavailable", "detail": "the routing service is unavailable"},
+                {"error": "routing_unavailable", "detail": str(error)},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 

@@ -23,6 +23,9 @@ class RoutingClient:
         self._timeout_seconds = timeout_seconds
 
     def get_route(self, start: tuple[float, float], finish: tuple[float, float]) -> Route:
+        if not self._api_key:
+            raise RoutingUnavailable("ORS_API_KEY is not set")
+
         start_lat, start_lng = start
         finish_lat, finish_lng = finish
         url = DIRECTIONS_URL_TEMPLATE.format(profile=self._profile)
@@ -37,17 +40,21 @@ class RoutingClient:
         if response.status_code >= 400:
             raise RouteNotFound(f"routing api returned {response.status_code}")
 
-        payload = response.json()
-        features = payload.get("features", [])
+        try:
+            features = response.json().get("features", [])
+        except (ValueError, AttributeError) as error:
+            raise RoutingUnavailable("routing api returned a body that is not json") from error
         if not features:
             raise RouteNotFound("no route features returned")
 
-        feature = features[0]
-        raw_coordinates = feature["geometry"]["coordinates"]
-        coordinates = [(lat, lng) for lng, lat in raw_coordinates]
-        summary = feature["properties"]["summary"]
-        distance_miles = summary["distance"] / METERS_PER_MILE
-        duration_seconds = summary["duration"]
+        try:
+            feature = features[0]
+            coordinates = [(lat, lng) for lng, lat in feature["geometry"]["coordinates"]]
+            summary = feature["properties"]["summary"]
+            distance_miles = summary["distance"] / METERS_PER_MILE
+            duration_seconds = summary["duration"]
+        except (KeyError, TypeError, ValueError) as error:
+            raise RoutingUnavailable("routing api returned an unexpected route shape") from error
 
         return Route(
             coordinates=coordinates,
