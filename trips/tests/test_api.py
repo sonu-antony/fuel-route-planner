@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 from stations.models import Station
 from stations.services.spatial_index import reset_index
 
-DIRECTIONS_URL = "https://api.openrouteservice.org/v2/directions/driving-hgv/geojson"
+DIRECTIONS_URL = "https://api.heigit.org/openrouteservice/v2/directions/driving-hgv/geojson"
 START = (39.0, -98.0)
 FINISH = (39.7236, -98.0)
 

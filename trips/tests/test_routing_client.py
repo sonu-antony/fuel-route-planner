@@ -5,7 +5,7 @@ from requests.exceptions import ConnectionError, Timeout
 from trips.exceptions import RouteNotFound, RoutingUnavailable
 from trips.services.routing_client import RoutingClient
 
-DIRECTIONS_URL = "https://api.openrouteservice.org/v2/directions/driving-hgv/geojson"
+DIRECTIONS_URL = "https://api.heigit.org/openrouteservice/v2/directions/driving-hgv/geojson"
 
 
 def make_client():
