@@ -163,6 +163,7 @@ def test_routing_failure_returns_502(api_client):
 
     assert response.status_code == 502
     assert response.json()["error"] == "routing_unavailable"
+    assert "500" in response.json()["detail"]
 
 
 @pytest.mark.django_db

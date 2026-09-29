@@ -121,3 +121,45 @@ def test_a_point_not_found_error_raises_route_not_found_without_retrying():
         make_client().get_route((41.8, -87.6), (39.7, -105.0))
 
     assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_a_body_that_is_not_json_raises_routing_unavailable():
+    responses.add(responses.POST, DIRECTIONS_URL, body="<html>bad gateway</html>", status=200)
+
+    with pytest.raises(RoutingUnavailable):
+        make_client().get_route((41.8, -87.6), (39.7, -105.0))
+
+
+@pytest.mark.parametrize(
+    "feature",
+    [
+        {"properties": {"summary": {"distance": 1.0, "duration": 1.0}}},
+        {"geometry": {"type": "LineString", "coordinates": [[-87.6, 41.8]]}, "properties": {}},
+        {"geometry": {"type": "LineString", "coordinates": "oops"}, "properties": {}},
+    ],
+)
+@responses.activate
+def test_a_feature_missing_geometry_or_summary_raises_routing_unavailable(feature):
+    responses.add(responses.POST, DIRECTIONS_URL, json={"features": [feature]}, status=200)
+
+    with pytest.raises(RoutingUnavailable):
+        make_client().get_route((41.8, -87.6), (39.7, -105.0))
+
+
+@responses.activate
+def test_a_missing_api_key_raises_routing_unavailable_without_calling_the_api():
+    client = RoutingClient(api_key="", profile="driving-hgv", timeout_seconds=10)
+
+    with pytest.raises(RoutingUnavailable, match="ORS_API_KEY"):
+        client.get_route((41.8, -87.6), (39.7, -105.0))
+
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_a_rate_limit_response_names_the_status_code():
+    responses.add(responses.POST, DIRECTIONS_URL, json={"error": "rate limit"}, status=429)
+
+    with pytest.raises(RouteNotFound, match="429"):
+        make_client().get_route((41.8, -87.6), (39.7, -105.0))
