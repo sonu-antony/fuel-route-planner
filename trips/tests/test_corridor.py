@@ -118,6 +118,20 @@ def test_each_stop_reports_how_far_it_is_off_the_route():
 
 
 @pytest.mark.django_db
+@pytest.mark.parametrize("prices", [("3.500", "3.200"), ("3.200", "3.500")])
+def test_among_stations_sharing_the_nearest_location_the_cheapest_becomes_the_start(prices):
+    shared_location = point_offset_east(point_due_north(ORIGIN, 4), 0.1)
+    make_station(1, *shared_location, price=prices[0])
+    make_station(2, *shared_location, price=prices[1])
+    route = [ORIGIN, point_due_north(ORIGIN, 100)]
+
+    stops = find_corridor_stops(route, sample_every_miles=2, corridor_miles=5)
+
+    start = next(stop for stop in stops if stop.mile_marker == 0.0)
+    assert str(start.price_per_gallon) == "3.200"
+
+
+@pytest.mark.django_db
 def test_the_start_station_counts_as_on_the_route():
     make_station(1, *point_offset_east(point_due_north(ORIGIN, 4), 0.1))
     route = [ORIGIN, point_due_north(ORIGIN, 100)]
