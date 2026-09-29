@@ -1,12 +1,11 @@
 import os
 from pathlib import Path
-from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get(
     "SECRET_KEY", "django-insecure-jl^o55lqe0^9jsq6=w7f9wv2ne@5h7o6f$u1*@t_nl^sl2_@z&"
@@ -58,28 +57,8 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 
-def _database_from_url(url: str) -> dict:
-    parsed = urlparse(url)
-    if parsed.scheme in ("postgres", "postgresql"):
-        return {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": parsed.path.lstrip("/"),
-            "USER": parsed.username,
-            "PASSWORD": parsed.password,
-            "HOST": parsed.hostname,
-            "PORT": parsed.port,
-        }
-    return {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-
-
-DATABASE_URL = os.environ.get("DATABASE_URL")
 DATABASES = {
-    "default": _database_from_url(DATABASE_URL)
-    if DATABASE_URL
-    else {
+    "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
     }
