@@ -35,11 +35,17 @@
       const icon = L.divIcon({ html: String(stopIndex), className: "stop-marker" });
       const marker = L.marker(latlng, { icon: icon });
       const props = feature.properties || {};
-      marker.bindPopup(
-        (props.name || "") +
-          "<br>$" + (props.price_per_gallon || "") + "/gal<br>" +
-          (props.gallons || "") + " gal"
-      );
+      const popup = document.createElement("div");
+      [
+        props.name || "",
+        "$" + (props.price_per_gallon || "") + "/gal",
+        (props.gallons || "") + " gal",
+      ].forEach(function (line) {
+        const row = document.createElement("div");
+        row.textContent = line;
+        popup.appendChild(row);
+      });
+      marker.bindPopup(popup);
       return marker;
     },
   }).addTo(map);
