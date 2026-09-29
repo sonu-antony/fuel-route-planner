@@ -5,7 +5,7 @@ from requests.exceptions import ConnectionError, Timeout
 
 from trips.exceptions import RouteNotFound, RoutingUnavailable
 
-DIRECTIONS_URL_TEMPLATE = "https://api.openrouteservice.org/v2/directions/{profile}/geojson"
+DIRECTIONS_URL_TEMPLATE = "https://api.heigit.org/openrouteservice/v2/directions/{profile}/geojson"
 METERS_PER_MILE = 1609.344
 
 
