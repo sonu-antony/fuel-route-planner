@@ -19,7 +19,8 @@ def api_client():
 
 
 @pytest.fixture(autouse=True)
-def _reset_state():
+def _reset_state(settings):
+    settings.ORS_API_KEY = "test-key"
     reset_index()
     cache.clear()
     yield
