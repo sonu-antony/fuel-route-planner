@@ -3,6 +3,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from config.env import non_negative_number, positive_number
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
@@ -86,10 +88,10 @@ REST_FRAMEWORK = {
 
 ORS_API_KEY = os.environ.get("ORS_API_KEY")
 ORS_PROFILE = os.environ.get("ORS_PROFILE", "driving-hgv")
-VEHICLE_RANGE_MILES = float(os.environ.get("VEHICLE_RANGE_MILES", "500"))
-VEHICLE_MILES_PER_GALLON = float(os.environ.get("VEHICLE_MILES_PER_GALLON", "10"))
-CORRIDOR_MILES = float(os.environ.get("CORRIDOR_MILES", "10"))
-ROUTE_SAMPLE_MILES = float(os.environ.get("ROUTE_SAMPLE_MILES", "2"))
-ROUTING_TIMEOUT_SECONDS = float(os.environ.get("ROUTING_TIMEOUT_SECONDS", "10"))
-TRIP_CACHE_SECONDS = int(os.environ.get("TRIP_CACHE_SECONDS", "86400"))
-FUEL_STOP_COST = float(os.environ.get("FUEL_STOP_COST", "0"))
+VEHICLE_RANGE_MILES = positive_number("VEHICLE_RANGE_MILES", 500)
+VEHICLE_MILES_PER_GALLON = positive_number("VEHICLE_MILES_PER_GALLON", 10)
+CORRIDOR_MILES = positive_number("CORRIDOR_MILES", 10)
+ROUTE_SAMPLE_MILES = positive_number("ROUTE_SAMPLE_MILES", 2)
+ROUTING_TIMEOUT_SECONDS = positive_number("ROUTING_TIMEOUT_SECONDS", 10)
+TRIP_CACHE_SECONDS = int(non_negative_number("TRIP_CACHE_SECONDS", 86400))
+FUEL_STOP_COST = non_negative_number("FUEL_STOP_COST", 0)
