@@ -181,3 +181,13 @@ def test_a_repeated_request_returns_cached_true_and_zero_routing_calls(api_clien
     assert second.json()["meta"]["cached"] is True
     assert second.json()["meta"]["routing_calls"] == 0
     assert len(responses.calls) == 1
+
+
+@pytest.mark.django_db
+def test_start_and_finish_resolving_to_the_same_point_return_400(api_client):
+    response = api_client.post(
+        "/api/v1/trips/plan/", {"start": "39,-98", "finish": "39.0,-98.0"}, format="json"
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "validation_error"

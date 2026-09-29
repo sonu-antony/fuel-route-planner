@@ -6,7 +6,8 @@ from django.core.cache import cache
 from stations.models import Station
 from stations.services.city_lookup import CityLookup
 from stations.services.spatial_index import EARTH_RADIUS_MILES, reset_index
-from trips.exceptions import UnreachableRoute
+from trips.exceptions import SameStartAndFinish, UnreachableRoute
+from trips.models import TripPlan
 from trips.services.routing_client import Route
 from trips.services.trip_service import TripPlanningConfig, plan_trip
 
@@ -236,3 +237,75 @@ def test_the_configured_cost_per_stop_reaches_the_fuel_planner():
     )
 
     assert len(result.trip.stops) == 1
+
+
+def make_midway_station(opis_id=1):
+    return Station.objects.create(
+        opis_id=opis_id,
+        name="MIDWAY FUEL",
+        address="I-1",
+        city="Somewhere",
+        state="KS",
+        rack_id=1,
+        price_per_gallon="3.199",
+        latitude=miles_east(START, 1)[0],
+        longitude=miles_east(START, 1)[1],
+        geocode_source=Station.GeocodeSource.CITY_CENTROID,
+    )
+
+
+def plan_short_trip(routing_client, start_query="39.0,-98.0"):
+    finish = miles_north(START, 50)
+    return plan_trip(
+        start_query=start_query,
+        finish_query=f"{finish[0]},{finish[1]}",
+        start_fuel_gallons=0.0,
+        routing_client=routing_client,
+        city_lookup=CityLookup({}),
+        config=make_config(),
+    )
+
+
+def short_route():
+    finish = miles_north(START, 50)
+    return Route(coordinates=[START, finish], distance_miles=50.0, duration_seconds=3000)
+
+
+@pytest.mark.django_db
+def test_stops_carry_the_opis_station_id_from_the_price_file():
+    make_midway_station(opis_id=4242)
+
+    result = plan_short_trip(FakeRoutingClient(short_route()))
+
+    assert result.trip.stops[0]["station_id"] == 4242
+
+
+@pytest.mark.django_db
+def test_start_and_finish_that_resolve_to_the_same_point_raise_same_start_and_finish():
+    routing_client = FakeRoutingClient(short_route())
+
+    with pytest.raises(SameStartAndFinish):
+        plan_trip(
+            start_query="39,-98",
+            finish_query="39.0,-98.0",
+            start_fuel_gallons=0.0,
+            routing_client=routing_client,
+            city_lookup=CityLookup({}),
+            config=make_config(),
+        )
+
+    assert routing_client.call_count == 0
+
+
+@pytest.mark.django_db
+def test_a_cached_trip_that_was_deleted_is_planned_again():
+    make_midway_station()
+    routing_client = FakeRoutingClient(short_route())
+    first = plan_short_trip(routing_client)
+    TripPlan.objects.filter(id=first.trip.id).delete()
+
+    second = plan_short_trip(routing_client)
+
+    assert routing_client.call_count == 2
+    assert second.cached is False
+    assert TripPlan.objects.filter(id=second.trip.id).exists()
