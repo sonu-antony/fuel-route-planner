@@ -1,7 +1,7 @@
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py"]
-testpaths = ["stations", "trips"]
+testpaths = ["config", "stations", "trips"]
 
 [tool.ruff]
 line-length = 100
