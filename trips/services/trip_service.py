@@ -22,6 +22,7 @@ class TripPlanningConfig:
     corridor_miles: float
     sample_every_miles: float
     cache_seconds: int
+    cost_per_stop: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -138,6 +139,7 @@ def plan_trip(
         tank_capacity_gallons=config.tank_capacity_gallons,
         miles_per_gallon=config.miles_per_gallon,
         start_fuel_gallons=start_fuel_gallons,
+        cost_per_stop=config.cost_per_stop,
     )
 
     serialized_stops = _serialize_stops(fuel_plan.stops)

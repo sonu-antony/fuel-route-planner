@@ -1,3 +1,4 @@
+from bisect import bisect_right
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -7,6 +8,7 @@ from trips.exceptions import UnreachableRoute
 __all__ = ["FuelCandidate", "FuelPlan", "FuelStop", "UnreachableRoute", "plan_fuel"]
 
 NO_FUEL_FOR_SALE = Decimal("Infinity")
+EPSILON_GALLONS = 1e-9
 
 
 @dataclass(frozen=True)
@@ -32,77 +34,135 @@ class FuelPlan:
     total_cost: Decimal
 
 
+def _cheapest_per_mile_marker(candidates: list[FuelCandidate]) -> list[FuelCandidate]:
+    cheapest: dict[float, FuelCandidate] = {}
+    for candidate in candidates:
+        current = cheapest.get(candidate.mile_marker)
+        if current is None or candidate.price_per_gallon < current.price_per_gallon:
+            cheapest[candidate.mile_marker] = candidate
+    return [cheapest[mile] for mile in sorted(cheapest)]
+
+
+def _check_reachable(
+    nodes: list[FuelCandidate],
+    tank_capacity_miles: float,
+    miles_per_gallon: float,
+    start_fuel_gallons: float,
+) -> None:
+    for previous, current in zip(nodes, nodes[1:], strict=False):
+        if current.mile_marker - previous.mile_marker > tank_capacity_miles:
+            raise UnreachableRoute(
+                f"no fuel station between mile {previous.mile_marker:.0f} and mile "
+                f"{current.mile_marker:.0f}, a gap longer than the "
+                f"{tank_capacity_miles:.0f}-mile range"
+            )
+
+    start, first = nodes[0], nodes[1]
+    if (
+        start.price_per_gallon == NO_FUEL_FOR_SALE
+        and first.mile_marker > start_fuel_gallons * miles_per_gallon
+    ):
+        place = (
+            "the route has no fuel station"
+            if first is nodes[-1]
+            else f"the first fuel station is at mile {first.mile_marker:.0f}"
+        )
+        needed_gallons = first.mile_marker / miles_per_gallon
+        raise UnreachableRoute(f"{place}; set start_fuel_gallons to at least {needed_gallons:.1f}")
+
+
+def _offer(
+    bucket: dict[float, tuple[float, int, float, float]],
+    remaining: float,
+    cost: float,
+    move: tuple[int, float, float],
+) -> None:
+    key = round(remaining, 6)
+    best = bucket.get(key)
+    if best is None or cost < best[0]:
+        bucket[key] = (cost, *move)
+
+
 def plan_fuel(
     candidates: list[FuelCandidate],
     total_distance_miles: float,
     tank_capacity_gallons: float,
     miles_per_gallon: float,
     start_fuel_gallons: float = 0.0,
+    cost_per_stop: float = 0.0,
 ) -> FuelPlan:
     tank_capacity_miles = tank_capacity_gallons * miles_per_gallon
-    destination = FuelCandidate(
-        station=None, mile_marker=total_distance_miles, price_per_gallon=Decimal("0")
-    )
-    nodes = sorted(candidates, key=lambda candidate: candidate.mile_marker)
+    nodes = _cheapest_per_mile_marker(candidates)
     if not nodes or nodes[0].mile_marker > 0:
         start = FuelCandidate(station=None, mile_marker=0.0, price_per_gallon=NO_FUEL_FOR_SALE)
         nodes.insert(0, start)
+    destination = FuelCandidate(
+        station=None, mile_marker=total_distance_miles, price_per_gallon=Decimal("0")
+    )
     nodes.append(destination)
+    _check_reachable(nodes, tank_capacity_miles, miles_per_gallon, start_fuel_gallons)
 
-    current_fuel = start_fuel_gallons
-    stops: list[FuelStop] = []
-    index = 0
+    miles = [node.mile_marker for node in nodes]
+    prices = [float(node.price_per_gallon) for node in nodes]
+    last = len(nodes) - 1
+    states: list[dict[float, tuple[float, int, float, float]]] = [{} for _ in nodes]
+    states[0][start_fuel_gallons] = (0.0, -1, 0.0, 0.0)
 
-    while index < len(nodes) - 1:
-        node = nodes[index]
-        horizon = node.mile_marker + tank_capacity_miles
-        reachable = [(i, n) for i, n in enumerate(nodes) if i > index and n.mile_marker <= horizon]
-        if not reachable:
-            next_mile = nodes[index + 1].mile_marker
-            raise UnreachableRoute(
-                f"no fuel station between mile {node.mile_marker:.0f} and mile {next_mile:.0f}, "
-                f"a gap longer than the {tank_capacity_miles:.0f}-mile range"
-            )
-
-        cheaper_ahead = [
-            pair for pair in reachable if pair[1].price_per_gallon < node.price_per_gallon
+    for index in range(last):
+        price = prices[index]
+        sells_fuel = price != float("inf")
+        legs = [
+            (states[target], (miles[target] - miles[index]) / miles_per_gallon, target < last)
+            for target in range(index + 1, bisect_right(miles, miles[index] + tank_capacity_miles))
         ]
-        if cheaper_ahead:
-            target_index, target = cheaper_ahead[0]
-            needed = (target.mile_marker - node.mile_marker) / miles_per_gallon
-            buy = max(0.0, needed - current_fuel)
-        else:
-            target_index, target = min(reachable, key=lambda pair: pair[1].price_per_gallon)
-            buy = tank_capacity_gallons - current_fuel
+        for arrival, (cost, *_) in states[index].items():
+            fill = tank_capacity_gallons - arrival
+            fill_cost = cost + fill * price + cost_per_stop
+            can_fill = sells_fuel and fill > EPSILON_GALLONS
+            for bucket, needed, before_destination in legs:
+                shortfall = needed - arrival
+                if shortfall > EPSILON_GALLONS:
+                    if sells_fuel:
+                        _offer(
+                            bucket,
+                            0.0,
+                            cost + shortfall * price + cost_per_stop,
+                            (index, arrival, shortfall),
+                        )
+                elif shortfall >= -EPSILON_GALLONS or index == 0:
+                    _offer(bucket, max(-shortfall, 0.0), cost, (index, arrival, 0.0))
+                if can_fill and before_destination:
+                    _offer(
+                        bucket, tank_capacity_gallons - needed, fill_cost, (index, arrival, fill)
+                    )
 
-        if buy > 0 and node.price_per_gallon == NO_FUEL_FOR_SALE:
-            first_mile = nodes[index + 1].mile_marker
-            needed_gallons = first_mile / miles_per_gallon
-            place = (
-                "the route has no fuel station"
-                if nodes[index + 1] is destination
-                else f"the first fuel station is at mile {first_mile:.0f}"
-            )
-            raise UnreachableRoute(
-                f"{place}; set start_fuel_gallons to at least {needed_gallons:.1f}"
-            )
-        if buy > 0:
-            gallons = round(buy, 6)
-            cost = Decimal(str(gallons)) * node.price_per_gallon
-            stops.append(
-                FuelStop(
-                    station=node.station,
-                    mile_marker=node.mile_marker,
-                    gallons=gallons,
-                    price_per_gallon=node.price_per_gallon,
-                    cost=cost,
-                )
-            )
-            current_fuel += gallons
+    if not states[last]:
+        raise UnreachableRoute("no fuel plan reaches the destination")
 
-        distance = target.mile_marker - node.mile_marker
-        current_fuel -= distance / miles_per_gallon
-        index = target_index
+    key = min(states[last], key=lambda fuel: states[last][fuel][0])
+    purchases: list[tuple[int, float]] = []
+    index = last
+    while True:
+        _, previous_index, previous_key, bought = states[index][key]
+        if previous_index < 0:
+            break
+        if bought > EPSILON_GALLONS:
+            purchases.append((previous_index, bought))
+        index, key = previous_index, previous_key
+
+    stops: list[FuelStop] = []
+    for node_index, bought in reversed(purchases):
+        node = nodes[node_index]
+        gallons = round(bought, 6)
+        stops.append(
+            FuelStop(
+                station=node.station,
+                mile_marker=node.mile_marker,
+                gallons=gallons,
+                price_per_gallon=node.price_per_gallon,
+                cost=Decimal(str(gallons)) * node.price_per_gallon,
+            )
+        )
 
     total_gallons = sum(stop.gallons for stop in stops)
     total_cost = sum((stop.cost for stop in stops), Decimal("0"))
