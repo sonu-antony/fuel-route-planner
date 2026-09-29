@@ -85,7 +85,7 @@ def test_happy_path_returns_200_with_every_documented_field_and_nothing_else(api
         "start",
         "finish",
         "distance_miles",
-        "total_gallons",
+        "gallons_purchased",
         "total_cost",
         "fuel_stops",
         "route",
