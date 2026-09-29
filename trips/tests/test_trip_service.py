@@ -309,3 +309,28 @@ def test_a_cached_trip_that_was_deleted_is_planned_again():
     assert routing_client.call_count == 2
     assert second.cached is False
     assert TripPlan.objects.filter(id=second.trip.id).exists()
+
+
+@pytest.mark.django_db
+def test_an_empty_tank_trip_begins_at_a_station_near_the_start_without_charging_the_approach():
+    near_start = miles_east(START, 8)
+    Station.objects.create(
+        opis_id=8,
+        name="EIGHT MILES OUT",
+        address="I-1",
+        city="Somewhere",
+        state="KS",
+        rack_id=1,
+        price_per_gallon="3.000",
+        latitude=near_start[0],
+        longitude=near_start[1],
+        geocode_source=Station.GeocodeSource.CITY_CENTROID,
+    )
+
+    result = plan_short_trip(FakeRoutingClient(short_route()))
+
+    [stop] = result.trip.stops
+    assert stop["station_id"] == 8
+    assert stop["mile_marker"] == 0.0
+    assert stop["off_route_miles"] == 0.0
+    assert stop["gallons"] == pytest.approx(5.0)
