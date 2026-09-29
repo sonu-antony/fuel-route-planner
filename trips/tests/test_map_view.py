@@ -50,3 +50,13 @@ def test_rendering_the_map_makes_no_routing_call(client):
     client.get(f"/trips/{trip.id}/map/")
 
     assert len(responses.calls) == 0
+
+
+@pytest.mark.django_db
+def test_popups_are_built_from_text_nodes_not_html_strings(client):
+    trip = make_trip_plan()
+
+    response = client.get(f"/trips/{trip.id}/map/")
+
+    assert b"textContent" in response.content
+    assert b'"<br>' not in response.content
