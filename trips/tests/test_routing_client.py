@@ -1,6 +1,12 @@
 import pytest
 import responses
-from requests.exceptions import ConnectionError, Timeout
+from requests.exceptions import (
+    ChunkedEncodingError,
+    ConnectionError,
+    InvalidURL,
+    Timeout,
+    TooManyRedirects,
+)
 
 from trips.exceptions import RouteNotFound, RoutingUnavailable
 from trips.services.routing_client import RoutingClient
@@ -162,4 +168,36 @@ def test_a_rate_limit_response_names_the_status_code():
     responses.add(responses.POST, DIRECTIONS_URL, json={"error": "rate limit"}, status=429)
 
     with pytest.raises(RouteNotFound, match="429"):
+        make_client().get_route((41.8, -87.6), (39.7, -105.0))
+
+
+@pytest.mark.parametrize("coordinates", [[], [[-87.6, 41.8]]])
+@responses.activate
+def test_a_route_with_fewer_than_two_points_raises_routing_unavailable(coordinates):
+    responses.add(responses.POST, DIRECTIONS_URL, json=geojson_response(coordinates), status=200)
+
+    with pytest.raises(RoutingUnavailable):
+        make_client().get_route((41.8, -87.6), (39.7, -105.0))
+
+
+@pytest.mark.parametrize("distance_meters", [-1.0, float("nan"), float("inf")])
+@responses.activate
+def test_a_negative_or_non_finite_distance_raises_routing_unavailable(distance_meters):
+    responses.add(
+        responses.POST,
+        DIRECTIONS_URL,
+        json=geojson_response([[-87.6, 41.8], [-105.0, 39.7]], distance_meters=distance_meters),
+        status=200,
+    )
+
+    with pytest.raises(RoutingUnavailable):
+        make_client().get_route((41.8, -87.6), (39.7, -105.0))
+
+
+@pytest.mark.parametrize("error", [ChunkedEncodingError(), TooManyRedirects(), InvalidURL()])
+@responses.activate
+def test_any_requests_failure_raises_routing_unavailable(error):
+    responses.add(responses.POST, DIRECTIONS_URL, body=error)
+
+    with pytest.raises(RoutingUnavailable):
         make_client().get_route((41.8, -87.6), (39.7, -105.0))
