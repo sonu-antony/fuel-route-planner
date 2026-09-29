@@ -118,12 +118,9 @@ class TripPlanView(APIView):
                 },
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
-        except UnreachableRoute:
+        except UnreachableRoute as error:
             return Response(
-                {
-                    "error": "unreachable_route",
-                    "detail": "no fuel stop is reachable along the route",
-                },
+                {"error": "unreachable_route", "detail": str(error)},
                 status=status.HTTP_422_UNPROCESSABLE_ENTITY,
             )
         except (RoutingUnavailable, RouteNotFound):

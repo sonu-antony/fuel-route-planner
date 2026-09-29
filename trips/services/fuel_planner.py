@@ -58,7 +58,11 @@ def plan_fuel(
         horizon = node.mile_marker + tank_capacity_miles
         reachable = [(i, n) for i, n in enumerate(nodes) if i > index and n.mile_marker <= horizon]
         if not reachable:
-            raise UnreachableRoute(f"no station reachable from mile {node.mile_marker}")
+            next_mile = nodes[index + 1].mile_marker
+            raise UnreachableRoute(
+                f"no fuel station between mile {node.mile_marker:.0f} and mile {next_mile:.0f}, "
+                f"a gap longer than the {tank_capacity_miles:.0f}-mile range"
+            )
 
         cheaper_ahead = [
             pair for pair in reachable if pair[1].price_per_gallon < node.price_per_gallon
@@ -72,7 +76,16 @@ def plan_fuel(
             buy = tank_capacity_gallons - current_fuel
 
         if buy > 0 and node.price_per_gallon == NO_FUEL_FOR_SALE:
-            raise UnreachableRoute("not enough starting fuel to reach the first station")
+            first_mile = nodes[index + 1].mile_marker
+            needed_gallons = first_mile / miles_per_gallon
+            place = (
+                "the route has no fuel station"
+                if nodes[index + 1] is destination
+                else f"the first fuel station is at mile {first_mile:.0f}"
+            )
+            raise UnreachableRoute(
+                f"{place}; set start_fuel_gallons to at least {needed_gallons:.1f}"
+            )
         if buy > 0:
             gallons = round(buy, 6)
             cost = Decimal(str(gallons)) * node.price_per_gallon
