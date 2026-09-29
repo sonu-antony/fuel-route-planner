@@ -147,6 +147,7 @@ def test_an_unreachable_route_returns_422(api_client):
 
     assert response.status_code == 422
     assert response.json()["error"] == "unreachable_route"
+    assert "start_fuel_gallons to at least" in response.json()["detail"]
 
 
 @pytest.mark.django_db

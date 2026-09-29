@@ -55,7 +55,7 @@ def test_when_no_cheaper_station_is_within_range_it_fills_up_and_skips_to_the_ch
 def test_a_gap_between_stations_longer_than_the_range_raises_unreachable_route():
     candidates = [candidate("A", 0.0, "3.00"), candidate("B", 600.0, "3.00")]
 
-    with pytest.raises(UnreachableRoute):
+    with pytest.raises(UnreachableRoute, match="between mile 0 and mile 600"):
         plan_fuel(
             candidates, total_distance_miles=700, tank_capacity_gallons=50, miles_per_gallon=10
         )
@@ -80,10 +80,15 @@ def test_starting_fuel_that_covers_the_whole_trip_gives_zero_stops_and_zero_cost
 def test_an_empty_tank_with_the_first_station_beyond_mile_zero_raises_unreachable_route():
     candidates = [candidate("A", 150.0, "3.00")]
 
-    with pytest.raises(UnreachableRoute):
+    with pytest.raises(UnreachableRoute, match="mile 150.*start_fuel_gallons to at least 15.0"):
         plan_fuel(
             candidates, total_distance_miles=400, tank_capacity_gallons=50, miles_per_gallon=10
         )
+
+
+def test_a_route_with_no_stations_and_an_empty_tank_says_how_much_starting_fuel_it_needs():
+    with pytest.raises(UnreachableRoute, match="no fuel station.*at least 10.0"):
+        plan_fuel([], total_distance_miles=100, tank_capacity_gallons=50, miles_per_gallon=10)
 
 
 def test_starting_fuel_carries_the_truck_to_a_first_station_beyond_mile_zero():
