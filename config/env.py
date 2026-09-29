@@ -29,3 +29,10 @@ def non_negative_number(name: str, default: float) -> float:
     if value < 0:
         raise ImproperlyConfigured(f"{name} must be 0 or more, got {value}")
     return value
+
+
+def non_negative_integer(name: str, default: int) -> int:
+    value = non_negative_number(name, default)
+    if not value.is_integer():
+        raise ImproperlyConfigured(f"{name} must be a whole number, got {value}")
+    return int(value)

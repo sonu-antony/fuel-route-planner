@@ -3,7 +3,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from config.env import non_negative_number, positive_number
+from config.env import non_negative_integer, non_negative_number, positive_number
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -93,5 +93,5 @@ VEHICLE_MILES_PER_GALLON = positive_number("VEHICLE_MILES_PER_GALLON", 10)
 CORRIDOR_MILES = positive_number("CORRIDOR_MILES", 10)
 ROUTE_SAMPLE_MILES = positive_number("ROUTE_SAMPLE_MILES", 2)
 ROUTING_TIMEOUT_SECONDS = positive_number("ROUTING_TIMEOUT_SECONDS", 10)
-TRIP_CACHE_SECONDS = int(non_negative_number("TRIP_CACHE_SECONDS", 86400))
+TRIP_CACHE_SECONDS = non_negative_integer("TRIP_CACHE_SECONDS", 86400)
 FUEL_STOP_COST = non_negative_number("FUEL_STOP_COST", 0)
