@@ -1,7 +1,8 @@
+import math
 from dataclasses import dataclass
 
 import requests
-from requests.exceptions import ConnectionError, Timeout
+from requests.exceptions import RequestException
 
 from trips.exceptions import RouteNotFound, RoutingUnavailable
 
@@ -34,7 +35,7 @@ class RoutingClient:
 
         try:
             response = requests.post(url, json=body, headers=headers, timeout=self._timeout_seconds)
-        except (Timeout, ConnectionError) as error:
+        except RequestException as error:
             raise RoutingUnavailable(str(error)) from error
 
         if response.status_code >= 400:
@@ -55,6 +56,11 @@ class RoutingClient:
             duration_seconds = summary["duration"]
         except (KeyError, TypeError, ValueError) as error:
             raise RoutingUnavailable("routing api returned an unexpected route shape") from error
+
+        if len(coordinates) < 2:
+            raise RoutingUnavailable("routing api returned a route with fewer than two points")
+        if not math.isfinite(distance_miles) or distance_miles < 0:
+            raise RoutingUnavailable("routing api returned an invalid route distance")
 
         return Route(
             coordinates=coordinates,
