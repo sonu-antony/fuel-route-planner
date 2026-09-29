@@ -1,7 +1,7 @@
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
-from config.env import non_negative_number, positive_number
+from config.env import non_negative_integer, non_negative_number, positive_number
 
 
 def test_an_unset_variable_uses_the_default(monkeypatch):
@@ -31,3 +31,19 @@ def test_a_non_negative_setting_accepts_zero_and_rejects_negatives(monkeypatch):
     monkeypatch.setenv("FUEL_TEST_VALUE", "-1")
     with pytest.raises(ImproperlyConfigured, match="FUEL_TEST_VALUE"):
         non_negative_number("FUEL_TEST_VALUE", 1)
+
+
+@pytest.mark.parametrize("value", ["0.5", "-1", "abc"])
+def test_a_non_negative_integer_setting_rejects_fractions_negatives_and_non_numbers(
+    monkeypatch, value
+):
+    monkeypatch.setenv("FUEL_TEST_VALUE", value)
+
+    with pytest.raises(ImproperlyConfigured, match="FUEL_TEST_VALUE"):
+        non_negative_integer("FUEL_TEST_VALUE", 1)
+
+
+def test_a_non_negative_integer_setting_parses_whole_numbers(monkeypatch):
+    monkeypatch.setenv("FUEL_TEST_VALUE", "3600")
+
+    assert non_negative_integer("FUEL_TEST_VALUE", 1) == 3600
