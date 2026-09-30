@@ -86,6 +86,7 @@ def test_happy_path_returns_200_with_every_documented_field_and_nothing_else(api
         "start",
         "finish",
         "distance_miles",
+        "fuel_stop_count",
         "gallons_purchased",
         "total_cost",
         "fuel_stops",
@@ -225,3 +226,32 @@ def test_starting_fuel_is_limited_by_the_configured_tank_size(api_client, settin
 
     assert response.status_code == 400
     assert "30" in str(response.json()["detail"]["start_fuel_gallons"])
+
+
+@pytest.mark.django_db
+@responses.activate
+def test_the_summary_comes_before_the_long_stop_and_route_lists(api_client):
+    responses.add(responses.POST, DIRECTIONS_URL, json=ors_response(), status=200)
+    make_station()
+
+    response = api_client.post(
+        "/api/v1/trips/plan/",
+        {"start": f"{START[0]},{START[1]}", "finish": f"{FINISH[0]},{FINISH[1]}"},
+        format="json",
+    )
+
+    body = response.json()
+    assert list(body) == [
+        "id",
+        "start",
+        "finish",
+        "distance_miles",
+        "fuel_stop_count",
+        "gallons_purchased",
+        "total_cost",
+        "map_url",
+        "meta",
+        "fuel_stops",
+        "route",
+    ]
+    assert body["fuel_stop_count"] == len(body["fuel_stops"])
