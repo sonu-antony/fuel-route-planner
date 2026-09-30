@@ -150,4 +150,4 @@ def health(request):
 
 def trip_map(request, trip_id):
     trip = get_object_or_404(TripPlan, pk=trip_id)
-    return render(request, "trips/map.html", {"route_geojson": trip.route_geojson})
+    return render(request, "trips/map.html", {"trip": trip, "route_geojson": trip.route_geojson})

@@ -1,60 +1,161 @@
-<!DOCTYPE html>
+{% load l10n %}<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fuel Route Map</title>
+<title>{{ trip.start_query }} to {{ trip.finish_query }} · Fuel Route</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
-  html, body, #map { height: 100%; margin: 0; }
-  .stop-marker {
-    background: #2563eb;
-    color: #fff;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font: bold 12px sans-serif;
+  :root {
+    --route: #2563eb;
+    --start: #16a34a;
+    --finish: #dc2626;
+    --ink: #111827;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+  }
+  html, body { height: 100%; margin: 0; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); }
+  #map { position: absolute; inset: 0; }
+  .panel {
+    position: absolute; top: 12px; right: 12px; z-index: 1000;
+    width: 340px; max-height: calc(100% - 24px); overflow-y: auto;
+    background: #fff; border-radius: 10px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  }
+  .panel header { padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+  .panel h1 { font-size: 16px; margin: 0 0 10px; }
+  .totals { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; margin: 0; }
+  .totals div { margin: 0; }
+  .totals dt { color: var(--muted); font-size: 12px; }
+  .totals dd { margin: 0; font-weight: 600; font-size: 15px; }
+  .legend { display: flex; gap: 14px; padding: 8px 16px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+  .legend .l-start::before { background: var(--start); }
+  .legend .l-stop::before { background: var(--route); }
+  .legend .l-finish::before { background: var(--finish); }
+  .stops { list-style: none; margin: 0; padding: 4px 0; }
+  .stops li { display: flex; gap: 10px; padding: 8px 16px; cursor: pointer; }
+  .stops li:hover { background: #f3f4f6; }
+  .stops .where, .stops .buy { display: block; color: var(--muted); font-size: 12px; }
+  .stops .buy { color: var(--ink); }
+  .empty { padding: 12px 16px; color: var(--muted); }
+  .pin {
+    display: flex; align-items: center; justify-content: center;
+    width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff;
+    color: #fff; font: bold 12px system-ui, sans-serif; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    flex: none; box-sizing: border-box;
+  }
+  .pin-stop { background: var(--route); }
+  .pin-start { background: var(--start); }
+  .pin-finish { background: var(--finish); }
+  @media (max-width: 640px) {
+    .panel { top: auto; bottom: 0; right: 0; left: 0; width: auto; max-height: 45%; border-radius: 10px 10px 0 0; }
   }
 </style>
 </head>
 <body>
 <div id="map"></div>
+<aside class="panel">
+  <header>
+    <h1>{{ trip.start_query }} → {{ trip.finish_query }}</h1>
+    <dl class="totals">
+      <div><dt>Distance</dt><dd>{{ trip.distance_miles|floatformat:"0g" }} mi</dd></div>
+      <div><dt>Fuel stops</dt><dd>{{ trip.stops|length }}</dd></div>
+      <div><dt>Gallons bought</dt><dd>{{ trip.total_gallons|floatformat:"1g" }}</dd></div>
+      <div><dt>Total fuel cost</dt><dd>${{ trip.total_cost|floatformat:"2g" }}</dd></div>
+    </dl>
+  </header>
+  <div class="legend"><span class="l-start">Start</span><span class="l-stop">Fuel stop</span><span class="l-finish">Finish</span></div>
+  {% if trip.stops %}
+  <ol class="stops">
+    {% for stop in trip.stops %}
+    <li data-index="{{ forloop.counter0 }}">
+      <span class="pin pin-stop">{{ forloop.counter }}</span>
+      <span>
+        <strong>{{ stop.name }}</strong>
+        <span class="where">{{ stop.city }}, {{ stop.state }} · mile {{ stop.mile_marker|floatformat:"0g" }}</span>
+        <span class="buy">{{ stop.gallons|floatformat:1 }} gal at ${{ stop.price_per_gallon|floatformat:3 }} = ${{ stop.cost|floatformat:2 }}</span>
+      </span>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <p class="empty">No fuel stops needed: the starting fuel covers the trip.</p>
+  {% endif %}
+</aside>
 {{ route_geojson|json_script:"route-data" }}
+{{ trip.stops|json_script:"stops-data" }}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   const routeData = JSON.parse(document.getElementById("route-data").textContent);
-  const map = L.map("map");
-  let stopIndex = 0;
+  const stops = JSON.parse(document.getElementById("stops-data").textContent);
+  const start = [{{ trip.start_lat|unlocalize }}, {{ trip.start_lng|unlocalize }}];
+  const finish = [{{ trip.finish_lat|unlocalize }}, {{ trip.finish_lng|unlocalize }}];
 
-  const layer = L.geoJSON(routeData, {
-    pointToLayer: function (feature, latlng) {
-      stopIndex += 1;
-      const icon = L.divIcon({ html: String(stopIndex), className: "stop-marker" });
-      const marker = L.marker(latlng, { icon: icon });
-      const props = feature.properties || {};
-      const popup = document.createElement("div");
-      [
-        props.name || "",
-        "$" + (props.price_per_gallon || "") + "/gal",
-        (props.gallons || "") + " gal",
-      ].forEach(function (line) {
-        const row = document.createElement("div");
-        row.textContent = line;
-        popup.appendChild(row);
-      });
-      marker.bindPopup(popup);
-      return marker;
-    },
+  const map = L.map("map");
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors",
   }).addTo(map);
 
-  if (layer.getBounds().isValid()) {
-    map.fitBounds(layer.getBounds());
-  } else {
-    map.setView([39.5, -98.35], 4);
+  const route = L.geoJSON(routeData, {
+    filter: function (feature) {
+      return feature.geometry && feature.geometry.type === "LineString";
+    },
+    style: { color: "#2563eb", weight: 5, opacity: 0.85 },
+  }).addTo(map);
+
+  function popupFor(lines) {
+    const popup = document.createElement("div");
+    lines.forEach(function (line, index) {
+      const row = document.createElement(index === 0 ? "strong" : "div");
+      row.textContent = line;
+      popup.appendChild(row);
+    });
+    return popup;
   }
+
+  function pinIcon(text, kind) {
+    const element = document.createElement("span");
+    element.className = "pin pin-" + kind;
+    element.textContent = text;
+    return L.divIcon({ html: element, className: "", iconSize: [24, 24], iconAnchor: [12, 12] });
+  }
+
+  L.marker(start, { icon: pinIcon("S", "start"), zIndexOffset: 1000 })
+    .bindPopup(popupFor(["Start", "{{ trip.start_query|escapejs }}"]))
+    .addTo(map);
+  L.marker(finish, { icon: pinIcon("F", "finish"), zIndexOffset: 1000 })
+    .bindPopup(popupFor(["Finish", "{{ trip.finish_query|escapejs }}"]))
+    .addTo(map);
+
+  const markers = stops.map(function (stop, index) {
+    return L.marker([stop.latitude, stop.longitude], { icon: pinIcon(String(index + 1), "stop") })
+      .bindPopup(popupFor([
+        stop.name,
+        stop.city + ", " + stop.state,
+        "Mile " + Math.round(stop.mile_marker) + " · " + (stop.off_route_miles || 0).toFixed(1) + " mi off route",
+        Number(stop.gallons).toFixed(1) + " gal at $" + Number(stop.price_per_gallon).toFixed(3) + " = $" + Number(stop.cost).toFixed(2),
+      ]))
+      .addTo(map);
+  });
+
+  document.querySelectorAll(".stops li").forEach(function (item) {
+    item.addEventListener("click", function () {
+      const marker = markers[Number(item.dataset.index)];
+      map.setView(marker.getLatLng(), Math.max(map.getZoom(), 9));
+      marker.openPopup();
+    });
+  });
+
+  const bounds = L.latLngBounds([start, finish]);
+  if (route.getBounds().isValid()) {
+    bounds.extend(route.getBounds());
+  }
+  const wide = window.innerWidth > 640;
+  map.fitBounds(bounds, {
+    paddingTopLeft: [40, 40],
+    paddingBottomRight: wide ? [380, 40] : [40, window.innerHeight * 0.45],
+  });
 </script>
 </body>
 </html>

@@ -73,7 +73,7 @@ def make_trip_plan_with_a_stop(name="PILOT #1243"):
         finish_lng=-104.9903,
         distance_miles=1007.5,
         total_gallons=Decimal("102.552"),
-        total_cost=Decimal("300.5646"),
+        total_cost=Decimal("300.564"),
         route_geojson={"type": "FeatureCollection", "features": []},
         stops=[
             {
