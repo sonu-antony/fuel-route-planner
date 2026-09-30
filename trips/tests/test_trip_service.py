@@ -334,3 +334,40 @@ def test_an_empty_tank_trip_begins_at_a_station_near_the_start_without_charging_
     assert stop["mile_marker"] == 0.0
     assert stop["off_route_miles"] == 0.0
     assert stop["gallons"] == pytest.approx(5.0)
+
+
+@pytest.mark.django_db
+def test_the_configured_fuel_reserve_reaches_the_fuel_planner():
+    make_midway_station()
+
+    result = plan_trip(
+        start_query="39.0,-98.0",
+        finish_query=f"{miles_north(START, 50)[0]},{miles_north(START, 50)[1]}",
+        start_fuel_gallons=0.0,
+        routing_client=FakeRoutingClient(short_route()),
+        city_lookup=CityLookup({}),
+        config=make_config(fuel_reserve_gallons=5.0),
+    )
+
+    [stop] = result.trip.stops
+    assert stop["gallons"] == pytest.approx(10.0)
+
+
+@pytest.mark.django_db
+def test_a_different_planning_config_does_not_reuse_a_cached_plan():
+    make_midway_station()
+    routing_client = FakeRoutingClient(short_route())
+    finish = miles_north(START, 50)
+    shared = {
+        "start_query": "39.0,-98.0",
+        "finish_query": f"{finish[0]},{finish[1]}",
+        "start_fuel_gallons": 0.0,
+        "routing_client": routing_client,
+        "city_lookup": CityLookup({}),
+    }
+
+    plan_trip(config=make_config(), **shared)
+    second = plan_trip(config=make_config(fuel_reserve_gallons=5.0), **shared)
+
+    assert routing_client.call_count == 2
+    assert second.cached is False

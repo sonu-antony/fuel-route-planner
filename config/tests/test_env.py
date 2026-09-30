@@ -1,3 +1,8 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
+
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
@@ -47,3 +52,19 @@ def test_a_non_negative_integer_setting_parses_whole_numbers(monkeypatch):
     monkeypatch.setenv("FUEL_TEST_VALUE", "3600")
 
     assert non_negative_integer("FUEL_TEST_VALUE", 1) == 3600
+
+
+@pytest.mark.parametrize("reserve", ["50", "60"])
+def test_a_fuel_reserve_as_large_as_the_tank_stops_the_server_starting(reserve):
+    environment = {**os.environ, "FUEL_RESERVE_GALLONS": reserve}
+
+    result = subprocess.run(
+        [sys.executable, "-c", "import config.settings"],
+        cwd=Path(__file__).resolve().parents[2],
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "FUEL_RESERVE_GALLONS" in result.stderr
