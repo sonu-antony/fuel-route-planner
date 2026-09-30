@@ -140,3 +140,17 @@ def test_the_start_station_counts_as_on_the_route():
 
     assert stop.mile_marker == 0.0
     assert stop.offset_miles == 0.0
+
+
+@pytest.mark.django_db
+def test_each_stop_remembers_the_route_point_its_offset_was_measured_from():
+    make_station(1, *point_offset_east(ORIGIN, 0.1))
+    make_station(2, *point_offset_east(point_due_north(ORIGIN, 20), 3))
+    route = [ORIGIN, point_due_north(ORIGIN, 100)]
+
+    stops = find_corridor_stops(route, sample_every_miles=2, corridor_miles=5)
+
+    start = next(stop for stop in stops if stop.station.opis_id == 1)
+    off_route = next(stop for stop in stops if stop.station.opis_id == 2)
+    assert start.route_point == ORIGIN
+    assert off_route.route_point == pytest.approx(point_due_north(ORIGIN, 20), abs=1e-6)

@@ -126,3 +126,13 @@ def test_station_names_in_the_stop_list_are_escaped(client):
 
     assert "<img src=x" not in content
     assert "&lt;img src=x" in content
+
+
+@pytest.mark.django_db
+def test_the_map_draws_detours_as_dashed_lines(client):
+    trip = make_trip_plan()
+
+    content = client.get(f"/trips/{trip.id}/map/").content
+
+    assert b'kind === "detour"' in content
+    assert b"dashArray" in content

@@ -371,3 +371,35 @@ def test_a_different_planning_config_does_not_reuse_a_cached_plan():
 
     assert routing_client.call_count == 2
     assert second.cached is False
+
+
+@pytest.mark.django_db
+def test_the_route_geojson_draws_a_detour_line_to_each_off_route_stop():
+    make_midway_station()
+    off_route = miles_east(miles_north(START, 20), 3)
+    Station.objects.create(
+        opis_id=2,
+        name="CHEAP BUT OFF ROUTE",
+        address="I-1",
+        city="Somewhere",
+        state="KS",
+        rack_id=1,
+        price_per_gallon="2.500",
+        latitude=off_route[0],
+        longitude=off_route[1],
+        geocode_source=Station.GeocodeSource.CITY_CENTROID,
+    )
+
+    result = plan_short_trip(FakeRoutingClient(short_route()))
+
+    detours = [
+        feature
+        for feature in result.trip.route_geojson["features"]
+        if feature["properties"]["kind"] == "detour"
+    ]
+    [detour] = detours
+    station_end, route_end = detour["geometry"]["coordinates"]
+    assert station_end == pytest.approx([off_route[1], off_route[0]])
+    route_point = miles_north(START, 20)
+    assert route_end == pytest.approx([route_point[1], route_point[0]], abs=1e-6)
+    assert detour["properties"]["miles"] == pytest.approx(3.0, abs=0.05)
