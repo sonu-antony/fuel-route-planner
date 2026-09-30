@@ -39,14 +39,14 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"finish\": \"New York, NY\",\n  \"start_fuel_gallons\": 35\n}"
+          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"finish\": \"New York, NY\",\n  \"start_fuel_gallons\": 40\n}"
         },
         "url": {
           "raw": "{{base_url}}/api/v1/trips/plan/",
           "host": ["{{base_url}}"],
           "path": ["api", "v1", "trips", "plan", ""]
         },
-        "description": "About 2,800 miles: expect several fuel stops. Starts with 35 gallons because the price file has no station within 244 miles of Los Angeles. Note meta.routing_calls: 1 and meta.cached: false on this first call."
+        "description": "About 2,800 miles: expect several fuel stops. Starts with 40 gallons because the price file has no station within 244 miles of Los Angeles, and the truck keeps a 5-gallon reserve. Note meta.routing_calls: 1 and meta.cached: false on this first call."
       }
     },
     {
@@ -56,7 +56,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"finish\": \"New York, NY\",\n  \"start_fuel_gallons\": 35\n}"
+          "raw": "{\n  \"start\": \"Los Angeles, CA\",\n  \"finish\": \"New York, NY\",\n  \"start_fuel_gallons\": 40\n}"
         },
         "url": {
           "raw": "{{base_url}}/api/v1/trips/plan/",

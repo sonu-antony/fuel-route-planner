@@ -54,9 +54,9 @@ Request body:
 `start_fuel_gallons` is optional (0–50, default 0) and represents fuel already in the tank.
 With an empty tank the trip begins at the station nearest the start, so it needs a station
 within 10 miles of the start; otherwise the fuel must cover the drive to the first station
-(see **Assumptions**).
+plus the 5-gallon reserve (see **Assumptions**).
 
-Response `200` (Chicago → Denver, trimmed to the first and last stop):
+Response `200` (Chicago → Denver, trimmed to two of its five stops):
 
 ```json
 {
@@ -64,8 +64,8 @@ Response `200` (Chicago → Denver, trimmed to the first and last stop):
   "start": { "query": "Chicago, IL", "lat": 41.8781, "lng": -87.6298 },
   "finish": { "query": "Denver, CO", "lat": 39.7392, "lng": -104.9903 },
   "distance_miles": 1007.5,
-  "gallons_purchased": 102.552,
-  "total_cost": 300.56,
+  "gallons_purchased": 107.622,
+  "total_cost": 317.95,
   "fuel_stops": [
     {
       "station_id": 73127,
@@ -76,8 +76,8 @@ Response `200` (Chicago → Denver, trimmed to the first and last stop):
       "mile_marker": 0.0,
       "off_route_miles": 0.0,
       "price_per_gallon": 3.399,
-      "gallons": 1.484,
-      "cost": 5.04
+      "gallons": 6.484,
+      "cost": 22.04
     },
     {
       "station_id": 68368,
@@ -88,8 +88,8 @@ Response `200` (Chicago → Denver, trimmed to the first and last stop):
       "mile_marker": 560.0,
       "off_route_miles": 6.8,
       "price_per_gallon": 2.799,
-      "gallons": 45.431,
-      "cost": 127.16
+      "gallons": 45.0,
+      "cost": 125.96
     }
   ],
   "route": {
@@ -97,7 +97,7 @@ Response `200` (Chicago → Denver, trimmed to the first and last stop):
     "features": ["... one route LineString, one Point per fuel stop ..."]
   },
   "map_url": "http://host/trips/5b1f2c3a-.../map/",
-  "meta": { "routing_calls": 1, "cached": false, "elapsed_ms": 1443.9 }
+  "meta": { "routing_calls": 1, "cached": false, "elapsed_ms": 1422.8 }
 }
 ```
 
@@ -105,8 +105,8 @@ Response `200` (Chicago → Denver, trimmed to the first and last stop):
 - `mile_marker` is how far along the route the station sits; `off_route_miles` is its
   straight-line distance from the route, driven there and back.
 - `gallons_purchased` and `total_cost` cover fuel bought on the trip, including the fuel
-  burned on detours to stations. Fuel already in the tank (`start_fuel_gallons`) is not
-  counted.
+  burned on detours to stations and the reserve the truck still carries at the finish. Fuel
+  already in the tank (`start_fuel_gallons`) is not counted.
 
 A repeated request (same start, finish and starting fuel) returns the same trip from cache,
 with `meta.routing_calls: 0` and `meta.cached: true`.
@@ -139,7 +139,7 @@ fuel, including the fuel burned driving off the road to each station.**
 1. **Resolve locations locally.** `start`/`finish` are parsed as `"lat,lng"` or looked up in a
    bundled US cities table (`stations/services/city_lookup.py`). No geocoding API is called.
 2. **Check the cache.** Start, finish and starting fuel (case, spacing and comma spacing
-   normalized) form the cache key. A hit returns the saved `TripPlan` with zero routing calls.
+   normalized) plus the planning settings form the cache key. A hit returns the saved `TripPlan` with zero routing calls.
 3. **One routing call.** On a miss, `trips/services/routing_client.py` calls OpenRouteService
    (`api.heigit.org`) once for the route line, distance and duration. A malformed or failed
    response becomes a 502; there is no retry, since a retry would spend a second call.
@@ -153,14 +153,17 @@ fuel, including the fuel burned driving off the road to each station.**
    Otherwise the trip begins at the requested start point (see **Assumptions** below).
 5. **Refueling plan** (`trips/services/fuel_planner.py`). A dynamic program over
    (station, fuel on arrival). Driving from stop A to stop B costs the route miles between
-   them plus A's and B's off-route distances. At each stop the truck either fills the tank or
-   buys just enough to reach the next stop empty; for a fixed set of stops one of those two is
-   always optimal, so the search is exact while only trying a handful of fuel levels per
-   station. The destination counts as a free station, so the tank ends empty.
+   them plus A's and B's off-route distances. The truck never lets the tank fall below
+   `FUEL_RESERVE_GALLONS` (default 5), so the planner works with the fuel above the reserve:
+   45 usable gallons, 450 miles per leg. At each stop the truck either fills the tank or buys
+   just enough to reach the next stop with only the reserve left; for a fixed set of stops one
+   of those two is always optimal, so the search is exact while only trying a handful of fuel
+   levels per station. The destination counts as a free station, so the truck arrives with
+   exactly the reserve.
    `trips/tests/test_fuel_planner.py` checks the plan against a brute-force solver on 200
-   random routes with off-route stations. The plan is optimal under this corridor model: the
-   stations it knows about, their mile markers and straight-line detours. It is not a
-   road-level optimum across alternative routes.
+   random routes with off-route stations, with and without a reserve. The plan is optimal
+   under this corridor model: the stations it knows about, their mile markers and
+   straight-line detours. It is not a road-level optimum across alternative routes.
 6. **Save and cache.** Stops, totals and the route GeoJSON are saved as a `TripPlan` (which the
    map page reads) and cached for `TRIP_CACHE_SECONDS`.
 
@@ -172,7 +175,7 @@ fuel, including the fuel burned driving off the road to each station.**
 | 10-mile corridor around the route, with the detour charged | Compensates for city-level station positions, while a station 8 miles off the road still costs 16 miles of fuel to use, so it is only chosen when it pays for itself | The detour is straight-line distance to the nearest sample point, not road distance; the truck is assumed to rejoin the route where it left it |
 | Mile marker = nearest resampled point (every 2 miles) | Simple and fast | Mile markers are approximate to about ±1 mile |
 | Dynamic program over (station, fuel on arrival) instead of the classic greedy | The greedy is exact only when stations sit on the route. Once detours cost fuel it is not, and the DP stays exact (verified against brute force). Ignoring detours also produced impractical plans: Chicago → Denver had 9 stops, some buying 0.2 gal to reach a station 2 miles on; with detours charged it has 4 | About 0.3 s of planning on a 2,800-mile route. Optimal only among stations near *this* route. `FUEL_STOP_COST` (default 0) can add a fixed cost per stop if fewer stops matter more than cents |
-| Plan to exactly 500 miles of range | Matches the assignment's stated range | No reserve: detours are straight-line and station positions city-level, so a leg planned at exactly 500 miles could run slightly longer in reality |
+| Keep a 5-gallon reserve at every stop and at the finish | Arriving at a pump with exactly zero is unrealistic, and the detours are straight-line and station positions city-level, so a buffer covers the difference | Each leg is at most 450 miles, which sometimes forces a small top-up: Chicago → Denver buys 0.5 gal at Brighton because Waco → Denver is 454 miles. `total_cost` includes buying the reserve, which is still in the tank at the end |
 | One routing call, cached, plus a saved plan for the map | Meets "call the routing API as little as possible"; the map costs nothing extra | The cache and the KD-tree live in each process's memory; several workers would need a shared cache and PostGIS |
 | OpenRouteService `driving-hgv` (truck) profile, one call, no retry or fallback | Free, and truck-legal roads suit a fleet use case; a retry or fallback would spend a second call | A transient provider failure returns a 502; the service does not retry, so the caller must. ORS caps driving routes at 6,000 km; the longest continental US routes (Los Angeles → New York is 4,500 km) fit |
 | Full route line returned in the response | The client can draw the exact route | A cross-country response can be several hundred KB; simplifying the line would shrink it |
@@ -189,15 +192,17 @@ fuel, including the fuel burned driving off the road to each station.**
     `start_fuel_gallons` must cover the drive to the first station, including its off-route
     distance. Otherwise the API returns `unreachable_route` and says how many gallons are
     needed. This matters in California: the price file has only 8 CA stations, all near the
-    Mexican border, so a trip from Los Angeles needs at least 25.3 gallons to reach the first
-    station, 244 miles along the route and 9 miles off it in Nevada.
+    Mexican border, so a trip from Los Angeles needs at least 30.3 gallons: 25.3 to reach the
+    first station, 244 miles along the route and 9 miles off it in Nevada, plus the 5-gallon
+    reserve.
 - Fuel can be bought in any fractional amount.
 - When a station ID appears more than once in the price file, the lowest price is kept.
 - Canadian stations are excluded; the assignment is USA-only.
-- Range, mpg, corridor width, sample spacing, per-stop cost, routing timeout and cache
-  lifetime are configurable in `.env` (defaults: 500-mile range, 10 mpg, no per-stop cost).
-  They are checked at startup: a zero, negative or non-numeric value stops the server with
-  an error naming the setting (`config/env.py`).
+- Range, mpg, fuel reserve, corridor width, sample spacing, per-stop cost, routing timeout and
+  cache lifetime are configurable in `.env` (defaults: 500-mile range, 10 mpg, 5-gallon
+  reserve, no per-stop cost).
+  They are checked at startup: a zero, negative or non-numeric value, or a reserve as large
+  as the tank, stops the server with an error naming the setting (`config/env.py`).
 
 ## Data preparation
 
@@ -228,9 +233,9 @@ Against the full 6,626-station database, with a live OpenRouteService key:
 | Trip | Distance | Stops | Cold | Cached |
 | --- | --- | --- | --- | --- |
 | Dallas → Houston | 240 mi | 2 | 1.0 s | < 10 ms |
-| Chicago → Denver | 1,008 mi | 4 | 1.5 s | < 10 ms |
-| Phoenix → Atlanta | 1,828 mi | 6 | 1.7 s | < 10 ms |
-| Los Angeles → New York (35 gal at start) | 2,796 mi | 7 | 2.1 s | < 10 ms |
+| Chicago → Denver | 1,008 mi | 5 | 1.4 s | < 10 ms |
+| Phoenix → Atlanta | 1,828 mi | 6 | 1.9 s | < 10 ms |
+| Los Angeles → New York (40 gal at start) | 2,796 mi | 9 | 2.1 s | < 10 ms |
 
 Most of a cold request is the OpenRouteService round trip. With that call mocked, this
 service's own work on Los Angeles → New York (resampling the route, the KD-tree corridor
@@ -240,15 +245,15 @@ spatial index; a cached request takes about 5 ms.
 ## What I would do next
 
 - Road-distance detours to stations (one matrix call per trip) instead of straight-line
-  distance, and a configurable fuel reserve instead of planning to an empty tank.
+  distance.
 - Street-level geocoding for stations, which would also allow a narrower corridor.
 - A hard wall-clock deadline on the routing call. `ROUTING_TIMEOUT_SECONDS` bounds each
   socket read, not the whole request, and one live test stalled for minutes before returning
   `routing_unavailable`.
-- Invalidate cached trips when prices or settings change. The cache key is start, finish and
-  starting fuel only; it works today because the cache lives in the server's memory and both
-  a `load_stations` reload and a `.env` change need a server restart, which clears it. A
-  shared cache would need a data and settings version in the key.
+- Invalidate cached trips when station prices change. The cache key includes the planning
+  settings, but not a data version; it works today because the cache lives in the server's
+  memory and a `load_stations` reload needs a server restart, which clears it. A shared cache
+  would need a data version in the key.
 - Coalesce identical requests that miss the cache at the same moment; today each makes its
   own routing call.
 - Production settings. The current ones are local-development defaults (`DEBUG` on, a fallback
