@@ -12,6 +12,7 @@ class CorridorStop:
     price_per_gallon: Decimal
     station: Station
     offset_miles: float = 0.0
+    route_point: Point | None = None
 
 
 def find_corridor_stops(
@@ -36,6 +37,7 @@ def find_corridor_stops(
                 sample_points[point_index],
                 (stations[station_id].latitude, stations[station_id].longitude),
             ),
+            route_point=sample_points[point_index],
         )
         for station_id, point_index in hits
     ]
@@ -55,6 +57,7 @@ def find_corridor_stops(
                 price_per_gallon=stop.price_per_gallon,
                 station=stop.station,
                 offset_miles=0.0,
+                route_point=start_point,
             )
             if stop is nearest_to_start
             else stop

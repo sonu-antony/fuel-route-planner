@@ -32,6 +32,7 @@
   .legend .l-start::before { background: var(--start); }
   .legend .l-stop::before { background: var(--route); }
   .legend .l-finish::before { background: var(--finish); }
+  .legend .l-detour::before { width: 14px; height: 0; border-radius: 0; border-top: 2px dashed #1e3a8a; vertical-align: 3px; }
   .stops { list-style: none; margin: 0; padding: 4px 0; }
   .stops li { display: flex; gap: 10px; padding: 8px 16px; cursor: pointer; }
   .stops li:hover { background: #f3f4f6; }
@@ -64,7 +65,7 @@
       <div><dt>Total fuel cost</dt><dd>${{ trip.total_cost|floatformat:"2g" }}</dd></div>
     </dl>
   </header>
-  <div class="legend"><span class="l-start">Start</span><span class="l-stop">Fuel stop</span><span class="l-finish">Finish</span></div>
+  <div class="legend"><span class="l-start">Start</span><span class="l-stop">Fuel stop</span><span class="l-finish">Finish</span><span class="l-detour">Detour</span></div>
   {% if trip.stops %}
   <ol class="stops">
     {% for stop in trip.stops %}
@@ -72,7 +73,7 @@
       <span class="pin pin-stop">{{ forloop.counter }}</span>
       <span>
         <strong>{{ stop.name }}</strong>
-        <span class="where">{{ stop.city }}, {{ stop.state }} · mile {{ stop.mile_marker|floatformat:"0g" }}</span>
+        <span class="where">{{ stop.city }}, {{ stop.state }} · mile {{ stop.mile_marker|floatformat:"0g" }}{% if stop.off_route_miles %} · {{ stop.off_route_miles|floatformat:1 }} mi off route{% endif %}</span>
         <span class="buy">{{ stop.gallons|floatformat:1 }} gal at ${{ stop.price_per_gallon|floatformat:3 }} = ${{ stop.cost|floatformat:2 }}</span>
       </span>
     </li>
@@ -100,9 +101,16 @@
 
   const route = L.geoJSON(routeData, {
     filter: function (feature) {
-      return feature.geometry && feature.geometry.type === "LineString";
+      return feature.properties && feature.properties.kind === "route";
     },
     style: { color: "#2563eb", weight: 5, opacity: 0.85 },
+  }).addTo(map);
+
+  L.geoJSON(routeData, {
+    filter: function (feature) {
+      return feature.properties && feature.properties.kind === "detour";
+    },
+    style: { color: "#1e3a8a", weight: 2, opacity: 0.9, dashArray: "4 6" },
   }).addTo(map);
 
   function popupFor(lines) {
@@ -113,6 +121,10 @@
       popup.appendChild(row);
     });
     return popup;
+  }
+
+  function detourText(miles) {
+    return miles > 0 ? miles.toFixed(1) + " mi detour each way (straight-line)" : "on the route";
   }
 
   function pinIcon(text, kind) {
@@ -134,7 +146,7 @@
       .bindPopup(popupFor([
         stop.name,
         stop.city + ", " + stop.state,
-        "Mile " + Math.round(stop.mile_marker) + " · " + (stop.off_route_miles || 0).toFixed(1) + " mi off route",
+        "Mile " + Math.round(stop.mile_marker) + " · " + detourText(stop.off_route_miles || 0),
         Number(stop.gallons).toFixed(1) + " gal at $" + Number(stop.price_per_gallon).toFixed(3) + " = $" + Number(stop.cost).toFixed(2),
       ]))
       .addTo(map);

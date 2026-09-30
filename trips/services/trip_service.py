@@ -49,7 +49,7 @@ def _cache_key(
     return f"trip-plan:{digest}"
 
 
-def _serialize_stops(fuel_stops: list[FuelStop]) -> list[dict]:
+def _serialize_stops(fuel_stops: list[FuelStop], route_points: dict[int, Point]) -> list[dict]:
     serialized = []
     for stop in fuel_stops:
         station = stop.station
@@ -64,6 +64,8 @@ def _serialize_stops(fuel_stops: list[FuelStop]) -> list[dict]:
                 "longitude": station.longitude,
                 "mile_marker": stop.mile_marker,
                 "off_route_miles": stop.offset_miles,
+                "route_latitude": route_points[station.id][0],
+                "route_longitude": route_points[station.id][1],
                 "price_per_gallon": str(stop.price_per_gallon),
                 "gallons": stop.gallons,
                 "cost": str(stop.cost),
@@ -99,6 +101,24 @@ def _build_route_geojson(coordinates: list[Point], serialized_stops: list[dict])
                 },
             }
         )
+        if stop["off_route_miles"] > 0:
+            features.append(
+                {
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "LineString",
+                        "coordinates": [
+                            [stop["longitude"], stop["latitude"]],
+                            [stop["route_longitude"], stop["route_latitude"]],
+                        ],
+                    },
+                    "properties": {
+                        "kind": "detour",
+                        "name": stop["name"],
+                        "miles": stop["off_route_miles"],
+                    },
+                }
+            )
     return {"type": "FeatureCollection", "features": features}
 
 
@@ -153,7 +173,8 @@ def plan_trip(
         fuel_reserve_gallons=config.fuel_reserve_gallons,
     )
 
-    serialized_stops = _serialize_stops(fuel_plan.stops)
+    route_points = {stop.station.id: stop.route_point for stop in corridor_stops}
+    serialized_stops = _serialize_stops(fuel_plan.stops, route_points)
     route_geojson = _build_route_geojson(route.coordinates, serialized_stops)
 
     trip = TripPlan.objects.create(
