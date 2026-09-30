@@ -66,7 +66,7 @@ Response `200` (Chicago → Denver, trimmed to two of its five stops):
   "start": { "query": "Chicago, IL", "lat": 41.8781, "lng": -87.6298 },
   "finish": { "query": "Denver, CO", "lat": 39.7392, "lng": -104.9903 },
   "distance_miles": 1007.5,
-  "gallons_purchased": 107.623,
+  "gallons_purchased": 107.625,
   "total_cost": 317.96,
   "fuel_stops": [
     {
