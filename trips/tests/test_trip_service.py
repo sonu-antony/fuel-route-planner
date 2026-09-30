@@ -434,3 +434,43 @@ def test_totals_are_the_sum_of_pump_receipts_rounded_like_a_pump_would():
     assert reloaded.total_cost == sum(costs)
     assert reloaded.total_gallons == sum(gallons)
     assert first.trip.total_cost == reloaded.total_cost
+
+
+@pytest.mark.django_db
+def test_replaying_the_saved_receipts_never_dips_below_the_reserve():
+    make_midway_station()
+    off_route = miles_east(miles_north(START, 20), 3.1234)
+    Station.objects.create(
+        opis_id=2,
+        name="CHEAP BUT OFF ROUTE",
+        address="I-1",
+        city="Somewhere",
+        state="KS",
+        rack_id=1,
+        price_per_gallon="2.500",
+        latitude=off_route[0],
+        longitude=off_route[1],
+        geocode_source=Station.GeocodeSource.CITY_CENTROID,
+    )
+    config = make_config(fuel_reserve_gallons=5.0)
+
+    result = plan_trip(
+        start_query="39.0,-98.0",
+        finish_query=f"{miles_north(START, 50)[0]},{miles_north(START, 50)[1]}",
+        start_fuel_gallons=0.0,
+        routing_client=FakeRoutingClient(short_route()),
+        city_lookup=CityLookup({}),
+        config=config,
+    )
+
+    stops = TripPlan.objects.get(id=result.trip.id).stops
+    assert len(stops) == 2
+    fuel, mile, offset = 0.0, 0.0, 0.0
+    for index, stop in enumerate(stops):
+        fuel -= (stop["mile_marker"] - mile + offset + stop["off_route_miles"]) / 10
+        if index > 0:
+            assert fuel >= config.fuel_reserve_gallons - 1e-6
+        fuel += stop["gallons"]
+        mile, offset = stop["mile_marker"], stop["off_route_miles"]
+    fuel -= (result.trip.distance_miles - mile + offset) / 10
+    assert fuel >= config.fuel_reserve_gallons - 1e-6
