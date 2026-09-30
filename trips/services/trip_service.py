@@ -2,7 +2,7 @@ import hashlib
 import time
 import uuid
 from dataclasses import astuple, dataclass
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_CEILING, ROUND_HALF_UP, Decimal
 
 from django.core.cache import cache
 
@@ -50,7 +50,7 @@ def _cache_key(
 
 
 def _pump_receipt(gallons: float, price_per_gallon: Decimal) -> tuple[Decimal, Decimal]:
-    pumped = Decimal(str(gallons)).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+    pumped = Decimal(str(gallons)).quantize(Decimal("0.001"), rounding=ROUND_CEILING)
     cost = (pumped * price_per_gallon).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return pumped, cost
 
