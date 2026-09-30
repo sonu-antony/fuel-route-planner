@@ -2,8 +2,8 @@
 
 ![CI](https://github.com/sonu-antony/fuel-route-planner/actions/workflows/ci.yml/badge.svg)
 
-A Django REST API that takes a start and finish location in the USA, returns the driving
-route, the cost-optimal fuel stops along it, and the total fuel cost. Given a maximum vehicle
+A Django REST API that takes a start and finish location in the continental USA (a city name
+or coordinates), returns the driving route, the cost-optimal fuel stops along it, and the total fuel cost. Given a maximum vehicle
 range, it decides where to refuel and how much to buy so the total spend is minimized,
 counting the fuel burned driving off the route to each station. It also renders each planned
 trip as an interactive map.
@@ -37,8 +37,8 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-`ruff check .` and `ruff format --check .` run
-alongside `pytest` in CI (`.github/workflows/ci.yml`).
+`ruff check .` and `ruff format --check .` run alongside `pytest` in CI
+(`.github/workflows/ci.yml`).
 
 ## API reference
 
@@ -108,8 +108,8 @@ Response `200` (Chicago → Denver, trimmed to two of its five stops):
   burned on detours to stations and the reserve the truck still carries at the finish. Fuel
   already in the tank (`start_fuel_gallons`) is not counted.
 
-A repeated request (same start, finish and starting fuel) returns the same trip from cache,
-with `meta.routing_calls: 0` and `meta.cached: true`.
+A repeated request (same start, finish and starting fuel, under the same planning settings)
+returns the same trip from cache, with `meta.routing_calls: 0` and `meta.cached: true`.
 
 ### `GET /trips/<uuid>/map/`
 
@@ -127,7 +127,7 @@ Every error response has the shape `{"error": "<code>", "detail": "..."}`.
 | 400    | `validation_error`     | missing field, fuel outside 0–50, or start and finish resolve to the same point |
 | 404    | `location_not_found`   | start or finish could not be resolved          |
 | 422    | `location_outside_usa` | resolved coordinates are outside the continental USA |
-| 422    | `unreachable_route`    | a gap between stations exceeds the range, or the first station is beyond the starting fuel; `detail` says where, and how much `start_fuel_gallons` would fix it |
+| 422    | `unreachable_route`    | a gap between stations exceeds the range left above the fuel reserve, or the first station is beyond the starting fuel; `detail` says where, and how much `start_fuel_gallons` would fix it |
 | 502    | `routing_unavailable`  | the routing provider timed out, returned an error status (e.g. 429), returned a malformed payload, or `ORS_API_KEY` is not set; `detail` says which |
 
 ## The approach: corridor search + dynamic-programming refueling
@@ -139,7 +139,8 @@ fuel, including the fuel burned driving off the road to each station.**
 1. **Resolve locations locally.** `start`/`finish` are parsed as `"lat,lng"` or looked up in a
    bundled US cities table (`stations/services/city_lookup.py`). No geocoding API is called.
 2. **Check the cache.** Start, finish and starting fuel (case, spacing and comma spacing
-   normalized) plus the planning settings form the cache key. A hit returns the saved `TripPlan` with zero routing calls.
+   normalized) plus the planning settings form the cache key. A hit returns the saved
+   `TripPlan` with zero routing calls.
 3. **One routing call.** On a miss, `trips/services/routing_client.py` calls OpenRouteService
    (`api.heigit.org`) once for the route line, distance and duration. A malformed or failed
    response becomes a 502; there is no retry, since a retry would spend a second call.
@@ -171,10 +172,10 @@ fuel, including the fuel burned driving off the road to each station.**
 
 | Choice | Why | Tradeoff |
 | --- | --- | --- |
-| Geocode stations by city and state, offline, and commit the result | ~60% of addresses are highway exits (`I-44, EXIT 283`) that street geocoders miss; offline means zero geocoding calls per request | Station positions are accurate to a few miles, not to the exact pump |
+| Geocode stations by city and state once, ahead of time, and commit the result | ~60% of addresses are highway exits (`I-44, EXIT 283`) that street geocoders miss; doing it ahead of time means zero geocoding calls per request | Station positions are accurate to a few miles, not to the exact pump |
 | 10-mile corridor around the route, with the detour charged | Compensates for city-level station positions, while a station 8 miles off the road still costs 16 miles of fuel to use, so it is only chosen when it pays for itself | The detour is straight-line distance to the nearest sample point, not road distance; the truck is assumed to rejoin the route where it left it |
 | Mile marker = nearest resampled point (every 2 miles) | Simple and fast | Mile markers are approximate to about ±1 mile |
-| Dynamic program over (station, fuel on arrival) instead of the classic greedy | The greedy is exact only when stations sit on the route. Once detours cost fuel it is not, and the DP stays exact (verified against brute force). Ignoring detours also produced impractical plans: Chicago → Denver had 9 stops, some buying 0.2 gal to reach a station 2 miles on; with detours charged it has 4 | About 0.3 s of planning on a 2,800-mile route. Optimal only among stations near *this* route. `FUEL_STOP_COST` (default 0) can add a fixed cost per stop if fewer stops matter more than cents |
+| Dynamic program over (station, fuel on arrival) instead of the classic greedy | The greedy is exact only when stations sit on the route. Once detours cost fuel it is not, and the DP stays exact (verified against brute force). Ignoring detours also produced impractical plans: Chicago → Denver had 9 stops, some buying 0.2 gal to reach a station 2 miles on; with detours charged it has 4 (5 with the fuel reserve, which forces one top-up) | About 0.3 s of planning on a 2,800-mile route. Optimal only among stations near *this* route. `FUEL_STOP_COST` (default 0) can add a fixed cost per stop if fewer stops matter more than cents |
 | Keep a 5-gallon reserve at every stop and at the finish | Arriving at a pump with exactly zero is unrealistic, and the detours are straight-line and station positions city-level, so a buffer covers the difference | Each leg is at most 450 miles, which sometimes forces a small top-up: Chicago → Denver buys 0.5 gal at Brighton because Waco → Denver is 454 miles. `total_cost` includes buying the reserve, which is still in the tank at the end |
 | One routing call, cached, plus a saved plan for the map | Meets "call the routing API as little as possible"; the map costs nothing extra | The cache and the KD-tree live in each process's memory; several workers would need a shared cache and PostGIS |
 | OpenRouteService `driving-hgv` (truck) profile, one call, no retry or fallback | Free, and truck-legal roads suit a fleet use case; a retry or fallback would spend a second call | A transient provider failure returns a 502; the service does not retry, so the caller must. ORS caps driving routes at 6,000 km; the longest continental US routes (Los Angeles → New York is 4,500 km) fit |
@@ -223,8 +224,8 @@ reviewers only need to run `load_stations`, which touches no network.
 - **1** routing API call per new trip.
 - **0** routing API calls per cached trip (identical start/finish/starting-fuel).
 - **0** routing API calls for the map view (reads the saved trip).
-- **0** geocoding calls at request time — station geocoding is a one-time offline step, and
-  start/finish resolution uses the same local city table.
+- **0** geocoding calls at request time — station geocoding is a one-time preparation step,
+  and start/finish resolution uses the same local city table.
 
 ## Measured response times
 
