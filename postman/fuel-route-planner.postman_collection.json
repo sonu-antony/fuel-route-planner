@@ -29,7 +29,7 @@
           "host": ["{{base_url}}"],
           "path": ["api", "v1", "trips", "plan", ""]
         },
-        "description": "Under 500 miles, so one tank covers the trip: expect one or two fuel stops near the start."
+        "description": "About 300 miles, within one tank, yet expect three stops: it buys only enough at a pricey Chicago station to reach cheaper fuel further south."
       }
     },
     {
