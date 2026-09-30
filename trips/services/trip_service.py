@@ -1,7 +1,7 @@
 import hashlib
 import time
 import uuid
-from dataclasses import dataclass
+from dataclasses import astuple, dataclass
 from decimal import Decimal
 
 from django.core.cache import cache
@@ -24,6 +24,7 @@ class TripPlanningConfig:
     sample_every_miles: float
     cache_seconds: int
     cost_per_stop: float = 0.0
+    fuel_reserve_gallons: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -38,10 +39,12 @@ def _normalize_query(query: str) -> str:
     return ",".join(" ".join(part.lower().split()) for part in query.split(","))
 
 
-def _cache_key(start_query: str, finish_query: str, start_fuel_gallons: float) -> str:
+def _cache_key(
+    start_query: str, finish_query: str, start_fuel_gallons: float, config: TripPlanningConfig
+) -> str:
     normalized_start = _normalize_query(start_query)
     normalized_finish = _normalize_query(finish_query)
-    raw_key = f"{normalized_start}|{normalized_finish}|{start_fuel_gallons:.2f}"
+    raw_key = f"{normalized_start}|{normalized_finish}|{start_fuel_gallons:.2f}|{astuple(config)}"
     digest = hashlib.sha256(raw_key.encode()).hexdigest()
     return f"trip-plan:{digest}"
 
@@ -108,7 +111,7 @@ def plan_trip(
     config: TripPlanningConfig,
 ) -> TripServiceResult:
     start_time = time.monotonic()
-    key = _cache_key(start_query, finish_query, start_fuel_gallons)
+    key = _cache_key(start_query, finish_query, start_fuel_gallons, config)
 
     cached_id = cache.get(key)
     cached_trip = TripPlan.objects.filter(id=cached_id).first() if cached_id else None
@@ -147,6 +150,7 @@ def plan_trip(
         miles_per_gallon=config.miles_per_gallon,
         start_fuel_gallons=start_fuel_gallons,
         cost_per_stop=config.cost_per_stop,
+        fuel_reserve_gallons=config.fuel_reserve_gallons,
     )
 
     serialized_stops = _serialize_stops(fuel_plan.stops)

@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 from config.env import non_negative_integer, non_negative_number, positive_number
@@ -95,3 +96,10 @@ ROUTE_SAMPLE_MILES = positive_number("ROUTE_SAMPLE_MILES", 2)
 ROUTING_TIMEOUT_SECONDS = positive_number("ROUTING_TIMEOUT_SECONDS", 10)
 TRIP_CACHE_SECONDS = non_negative_integer("TRIP_CACHE_SECONDS", 86400)
 FUEL_STOP_COST = non_negative_number("FUEL_STOP_COST", 0)
+FUEL_RESERVE_GALLONS = non_negative_number("FUEL_RESERVE_GALLONS", 5)
+if FUEL_RESERVE_GALLONS >= VEHICLE_RANGE_MILES / VEHICLE_MILES_PER_GALLON:
+    raise ImproperlyConfigured(
+        f"FUEL_RESERVE_GALLONS must be smaller than the "
+        f"{VEHICLE_RANGE_MILES / VEHICLE_MILES_PER_GALLON:g}-gallon tank, "
+        f"got {FUEL_RESERVE_GALLONS:g}"
+    )

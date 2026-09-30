@@ -94,6 +94,7 @@ class TripPlanView(APIView):
             sample_every_miles=settings.ROUTE_SAMPLE_MILES,
             cache_seconds=settings.TRIP_CACHE_SECONDS,
             cost_per_stop=settings.FUEL_STOP_COST,
+            fuel_reserve_gallons=settings.FUEL_RESERVE_GALLONS,
         )
 
         try:
