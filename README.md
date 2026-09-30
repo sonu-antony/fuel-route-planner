@@ -103,7 +103,8 @@ Response `200` (Chicago → Denver, trimmed to two of its five stops):
 
 - `station_id` is the station's OPIS ID from the price file.
 - `mile_marker` is how far along the route the station sits; `off_route_miles` is its
-  straight-line distance from the route, driven there and back.
+  one-way, straight-line distance from the route. The plan charges the round trip, so a stop
+  0.9 miles off the route costs 1.8 miles of fuel.
 - `gallons_purchased` and `total_cost` cover fuel bought on the trip, including the fuel
   burned on detours to stations and the reserve the truck still carries at the finish. Fuel
   already in the tank (`start_fuel_gallons`) is not counted.
@@ -114,11 +115,17 @@ returns the same trip from cache, with `meta.routing_calls: 0` and `meta.cached:
 ### `GET /trips/<uuid>/map/`
 
 Renders the saved trip on a Leaflet map over OpenStreetMap tiles: the route line, green (S)
-and red (F) pins for start and finish, a numbered pin per fuel stop, and a dashed line from
-the route to each off-route stop showing the detour the plan charges for. The route itself is
-not re-drawn through the stops, since that would take a second routing call. A side panel shows the
-distance, gallons bought and total cost, and lists each stop with what to buy there; clicking
-a stop in the list zooms to its pin. Reads the saved `TripPlan`, so it makes no routing call.
+and red (F) pins for start and finish, and a numbered pin per fuel stop. A dashed line runs
+from each off-route stop to the route point its offset was measured from, and the stop's popup
+gives both figures (e.g. "0.9 mi off route · 1.8 mi round-trip detour"). The route itself is
+not re-drawn through the stops, since that would take a second routing call. Pins mark the
+station's town, not the exact pump, because stations are geocoded by city (see
+[Data preparation](#data-preparation)); a station whose address names a highway exit can
+appear a mile or so from the road it actually sits on.
+
+A side panel shows the distance, gallons bought and total cost, and lists each stop with what
+to buy there; clicking a stop in the list zooms to its pin. The page reads the saved
+`TripPlan`, so it makes no routing call.
 
 ### Errors
 
