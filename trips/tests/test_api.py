@@ -210,3 +210,18 @@ def test_distance_is_reported_to_one_decimal_place(api_client):
     )
 
     assert response.json()["distance_miles"] == 49.7
+
+
+@pytest.mark.django_db
+def test_starting_fuel_is_limited_by_the_configured_tank_size(api_client, settings):
+    settings.VEHICLE_RANGE_MILES = 300
+    settings.VEHICLE_MILES_PER_GALLON = 10
+
+    response = api_client.post(
+        "/api/v1/trips/plan/",
+        {"start": "39.0,-98.0", "finish": "39.7236,-98.0", "start_fuel_gallons": 40},
+        format="json",
+    )
+
+    assert response.status_code == 400
+    assert "30" in str(response.json()["detail"]["start_fuel_gallons"])
