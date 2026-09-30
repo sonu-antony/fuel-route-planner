@@ -136,3 +136,13 @@ def test_the_map_draws_detours_as_dashed_lines(client):
 
     assert b'kind === "detour"' in content
     assert b"dashArray" in content
+
+
+@pytest.mark.django_db
+def test_stop_popups_state_the_offset_and_the_round_trip_detour(client):
+    trip = make_trip_plan()
+
+    content = client.get(f"/trips/{trip.id}/map/").content
+
+    assert b"mi off route" in content
+    assert b"mi round-trip detour" in content
