@@ -94,7 +94,7 @@ Response `200` (Chicago → Denver, trimmed to two of its five stops):
   ],
   "route": {
     "type": "FeatureCollection",
-    "features": ["... one route LineString, one Point per fuel stop ..."]
+    "features": ["... the route LineString, a Point per fuel stop, a detour LineString per off-route stop ..."]
   },
   "map_url": "http://host/trips/5b1f2c3a-.../map/",
   "meta": { "routing_calls": 1, "cached": false, "elapsed_ms": 1422.8 }
@@ -114,7 +114,9 @@ returns the same trip from cache, with `meta.routing_calls: 0` and `meta.cached:
 ### `GET /trips/<uuid>/map/`
 
 Renders the saved trip on a Leaflet map over OpenStreetMap tiles: the route line, green (S)
-and red (F) pins for start and finish, and a numbered pin per fuel stop. A side panel shows the
+and red (F) pins for start and finish, a numbered pin per fuel stop, and a dashed line from
+the route to each off-route stop showing the detour the plan charges for. The route itself is
+not re-drawn through the stops, since that would take a second routing call. A side panel shows the
 distance, gallons bought and total cost, and lists each stop with what to buy there; clicking
 a stop in the list zooms to its pin. Reads the saved `TripPlan`, so it makes no routing call.
 
