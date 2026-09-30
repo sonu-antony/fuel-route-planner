@@ -3,10 +3,11 @@
 ![CI](https://github.com/sonu-antony/fuel-route-planner/actions/workflows/ci.yml/badge.svg)
 
 A Django REST API that takes a start and finish location in the continental USA (a city name
-or coordinates), returns the driving route, the cost-optimal fuel stops along it, and the total fuel cost. Given a maximum vehicle
-range, it decides where to refuel and how much to buy so the total spend is minimized,
-counting the fuel burned driving off the route to each station. It also renders each planned
-trip as an interactive map.
+or coordinates) and returns the driving route, the cost-optimal fuel stops along it, and the
+total fuel cost. Given the vehicle's 500-mile range, it decides where to refuel and how much to
+buy so the total spend is minimized, counting the fuel burned on detours to each station and
+never letting the tank drop below a 5-gallon reserve. It also renders each trip as an
+interactive map, with the detours drawn in.
 
 The approach is **corridor search + dynamic-programming refueling**, with one routing API call
 per new trip. See [The approach](#the-approach-corridor-search--dynamic-programming-refueling)
@@ -143,7 +144,8 @@ Every error response has the shape `{"error": "<code>", "detail": "..."}`.
 
 In one line: **ask the routing API once for the road, find every priced station within a
 narrow corridor of that road, then pick the stops and gallons that minimize the money spent on
-fuel, including the fuel burned driving off the road to each station.**
+fuel, including the fuel burned driving off the road to each station, while always keeping a
+5-gallon reserve in the tank.**
 
 1. **Resolve locations locally.** `start`/`finish` are parsed as `"lat,lng"` or looked up in a
    bundled US cities table (`stations/services/city_lookup.py`). No geocoding API is called.
