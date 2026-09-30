@@ -113,9 +113,10 @@ with `meta.routing_calls: 0` and `meta.cached: true`.
 
 ### `GET /trips/<uuid>/map/`
 
-Renders the saved trip on a Leaflet map — the route line and a numbered marker per fuel stop,
-each with a popup showing name, price and gallons bought. Reads the saved `TripPlan`, so it
-makes no routing call.
+Renders the saved trip on a Leaflet map over OpenStreetMap tiles: the route line, green (S)
+and red (F) pins for start and finish, and a numbered pin per fuel stop. A side panel shows the
+distance, gallons bought and total cost, and lists each stop with what to buy there; clicking
+a stop in the list zooms to its pin. Reads the saved `TripPlan`, so it makes no routing call.
 
 ### Errors
 
