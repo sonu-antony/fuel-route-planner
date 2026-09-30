@@ -2,7 +2,7 @@ import hashlib
 import time
 import uuid
 from dataclasses import astuple, dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.core.cache import cache
 
@@ -49,10 +49,17 @@ def _cache_key(
     return f"trip-plan:{digest}"
 
 
+def _pump_receipt(gallons: float, price_per_gallon: Decimal) -> tuple[Decimal, Decimal]:
+    pumped = Decimal(str(gallons)).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+    cost = (pumped * price_per_gallon).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return pumped, cost
+
+
 def _serialize_stops(fuel_stops: list[FuelStop], route_points: dict[int, Point]) -> list[dict]:
     serialized = []
     for stop in fuel_stops:
         station = stop.station
+        pumped, cost = _pump_receipt(stop.gallons, stop.price_per_gallon)
         serialized.append(
             {
                 "station_id": station.opis_id,
@@ -67,8 +74,8 @@ def _serialize_stops(fuel_stops: list[FuelStop], route_points: dict[int, Point])
                 "route_latitude": route_points[station.id][0],
                 "route_longitude": route_points[station.id][1],
                 "price_per_gallon": str(stop.price_per_gallon),
-                "gallons": stop.gallons,
-                "cost": str(stop.cost),
+                "gallons": float(pumped),
+                "cost": str(cost),
             }
         )
     return serialized
@@ -186,8 +193,8 @@ def plan_trip(
         finish_lat=finish_coordinates[0],
         finish_lng=finish_coordinates[1],
         distance_miles=route.distance_miles,
-        total_gallons=Decimal(str(round(fuel_plan.total_gallons, 6))),
-        total_cost=fuel_plan.total_cost,
+        total_gallons=sum((Decimal(str(stop["gallons"])) for stop in serialized_stops), Decimal(0)),
+        total_cost=sum((Decimal(stop["cost"]) for stop in serialized_stops), Decimal(0)),
         route_geojson=route_geojson,
         stops=serialized_stops,
     )
