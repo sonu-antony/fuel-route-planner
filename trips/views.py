@@ -59,16 +59,17 @@ def _serialize_trip(
         "start": {"query": trip.start_query, "lat": trip.start_lat, "lng": trip.start_lng},
         "finish": {"query": trip.finish_query, "lat": trip.finish_lat, "lng": trip.finish_lng},
         "distance_miles": round(trip.distance_miles, 1),
+        "fuel_stop_count": len(fuel_stops),
         "gallons_purchased": round(float(trip.total_gallons), 3),
         "total_cost": _round_money(trip.total_cost),
-        "fuel_stops": fuel_stops,
-        "route": trip.route_geojson,
         "map_url": request.build_absolute_uri(f"/trips/{trip.id}/map/"),
         "meta": {
             "routing_calls": routing_calls,
             "cached": cached,
             "elapsed_ms": round(elapsed_ms, 1),
         },
+        "fuel_stops": fuel_stops,
+        "route": trip.route_geojson,
     }
 
 

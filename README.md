@@ -66,8 +66,11 @@ Response `200` (Chicago → Denver, trimmed to two of its five stops):
   "start": { "query": "Chicago, IL", "lat": 41.8781, "lng": -87.6298 },
   "finish": { "query": "Denver, CO", "lat": 39.7392, "lng": -104.9903 },
   "distance_miles": 1007.5,
+  "fuel_stop_count": 5,
   "gallons_purchased": 107.625,
   "total_cost": 317.96,
+  "map_url": "http://host/trips/5b1f2c3a-.../map/",
+  "meta": { "routing_calls": 1, "cached": false, "elapsed_ms": 1581.8 },
   "fuel_stops": [
     {
       "station_id": 73127,
@@ -97,12 +100,13 @@ Response `200` (Chicago → Denver, trimmed to two of its five stops):
   "route": {
     "type": "FeatureCollection",
     "features": ["... the route LineString, a Point per fuel stop, a detour LineString per off-route stop ..."]
-  },
-  "map_url": "http://host/trips/5b1f2c3a-.../map/",
-  "meta": { "routing_calls": 1, "cached": false, "elapsed_ms": 1581.8 }
+  }
 }
 ```
 
+- The summary (totals, `fuel_stop_count`, `map_url`, `meta`) comes first; the two long lists,
+  `fuel_stops` and `route`, come last, so the answer is readable without scrolling past
+  thousands of route coordinates.
 - `station_id` is the station's OPIS ID from the price file.
 - `mile_marker` is how far along the route the station sits; `off_route_miles` is its
   one-way, straight-line distance from the route. The plan charges the round trip, so a stop
