@@ -1,4 +1,5 @@
 import math
+from decimal import Decimal
 
 import pytest
 from django.core.cache import cache
@@ -403,3 +404,33 @@ def test_the_route_geojson_draws_a_detour_line_to_each_off_route_stop():
     route_point = miles_north(START, 20)
     assert route_end == pytest.approx([route_point[1], route_point[0]], abs=1e-6)
     assert detour["properties"]["miles"] == pytest.approx(3.0, abs=0.05)
+
+
+@pytest.mark.django_db
+def test_totals_are_the_sum_of_pump_receipts_rounded_like_a_pump_would():
+    make_midway_station()
+    off_route = miles_east(miles_north(START, 20), 3)
+    Station.objects.create(
+        opis_id=2,
+        name="CHEAP BUT OFF ROUTE",
+        address="I-1",
+        city="Somewhere",
+        state="KS",
+        rack_id=1,
+        price_per_gallon="2.500",
+        latitude=off_route[0],
+        longitude=off_route[1],
+        geocode_source=Station.GeocodeSource.CITY_CENTROID,
+    )
+
+    first = plan_short_trip(FakeRoutingClient(short_route()))
+    reloaded = TripPlan.objects.get(id=first.trip.id)
+
+    costs = [Decimal(stop["cost"]) for stop in reloaded.stops]
+    gallons = [Decimal(str(stop["gallons"])) for stop in reloaded.stops]
+    assert len(costs) == 2
+    assert all(cost == cost.quantize(Decimal("0.01")) for cost in costs)
+    assert all(amount == amount.quantize(Decimal("0.001")) for amount in gallons)
+    assert reloaded.total_cost == sum(costs)
+    assert reloaded.total_gallons == sum(gallons)
+    assert first.trip.total_cost == reloaded.total_cost

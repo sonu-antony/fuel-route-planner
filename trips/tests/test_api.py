@@ -193,3 +193,20 @@ def test_start_and_finish_resolving_to_the_same_point_return_400(api_client):
 
     assert response.status_code == 400
     assert response.json()["error"] == "validation_error"
+
+
+@pytest.mark.django_db
+@responses.activate
+def test_distance_is_reported_to_one_decimal_place(api_client):
+    responses.add(
+        responses.POST, DIRECTIONS_URL, json=ors_response(distance_meters=80000.0), status=200
+    )
+    make_station()
+
+    response = api_client.post(
+        "/api/v1/trips/plan/",
+        {"start": f"{START[0]},{START[1]}", "finish": f"{FINISH[0]},{FINISH[1]}"},
+        format="json",
+    )
+
+    assert response.json()["distance_miles"] == 49.7
