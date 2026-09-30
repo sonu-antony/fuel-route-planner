@@ -65,8 +65,8 @@ Response `200` (Chicago → Denver, trimmed to two of its five stops):
   "start": { "query": "Chicago, IL", "lat": 41.8781, "lng": -87.6298 },
   "finish": { "query": "Denver, CO", "lat": 39.7392, "lng": -104.9903 },
   "distance_miles": 1007.5,
-  "gallons_purchased": 107.622,
-  "total_cost": 317.95,
+  "gallons_purchased": 107.623,
+  "total_cost": 317.96,
   "fuel_stops": [
     {
       "station_id": 73127,
@@ -98,7 +98,7 @@ Response `200` (Chicago → Denver, trimmed to two of its five stops):
     "features": ["... the route LineString, a Point per fuel stop, a detour LineString per off-route stop ..."]
   },
   "map_url": "http://host/trips/5b1f2c3a-.../map/",
-  "meta": { "routing_calls": 1, "cached": false, "elapsed_ms": 1422.8 }
+  "meta": { "routing_calls": 1, "cached": false, "elapsed_ms": 1581.8 }
 }
 ```
 
@@ -109,6 +109,9 @@ Response `200` (Chicago → Denver, trimmed to two of its five stops):
 - `gallons_purchased` and `total_cost` cover fuel bought on the trip, including the fuel
   burned on detours to stations and the reserve the truck still carries at the finish. Fuel
   already in the tank (`start_fuel_gallons`) is not counted.
+- Each stop reads like a pump receipt: gallons to 3 decimals, cost to the cent. The totals are
+  the sum of those receipts, so they always add up, and a cached response reports exactly
+  the same figures.
 
 A repeated request (same start, finish and starting fuel, under the same planning settings)
 returns the same trip from cache, with `meta.routing_calls: 0` and `meta.cached: true`.
