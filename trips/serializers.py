@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.conf import settings
 from rest_framework import serializers
 
 
@@ -12,8 +13,15 @@ class TripPlanRequestSerializer(serializers.Serializer):
         required=False,
         default=Decimal("0"),
         min_value=Decimal("0"),
-        max_value=Decimal("50"),
     )
+
+    def validate_start_fuel_gallons(self, value: Decimal) -> Decimal:
+        tank_gallons = settings.VEHICLE_RANGE_MILES / settings.VEHICLE_MILES_PER_GALLON
+        if value > Decimal(str(tank_gallons)):
+            raise serializers.ValidationError(
+                f"Ensure this value is at most the {tank_gallons:g}-gallon tank."
+            )
+        return value
 
     def validate(self, attrs: dict) -> dict:
         if attrs["start"].strip().lower() == attrs["finish"].strip().lower():
