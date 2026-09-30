@@ -60,29 +60,33 @@ def _undominated_candidates(candidates: list[FuelCandidate]) -> list[FuelCandida
 
 def _check_reachable(
     nodes: list[FuelCandidate],
-    tank_capacity_miles: float,
+    usable_miles: float,
     miles_per_gallon: float,
-    start_fuel_gallons: float,
+    usable_start_gallons: float,
+    fuel_reserve_gallons: float,
 ) -> None:
+    reserve_note = (
+        f" above the {fuel_reserve_gallons:g}-gallon reserve" if fuel_reserve_gallons else ""
+    )
     for previous, current in zip(nodes, nodes[1:], strict=False):
-        if current.mile_marker - previous.mile_marker > tank_capacity_miles:
+        if current.mile_marker - previous.mile_marker > usable_miles:
             raise UnreachableRoute(
                 f"no fuel station between mile {previous.mile_marker:.0f} and mile "
                 f"{current.mile_marker:.0f}, a gap longer than the "
-                f"{tank_capacity_miles:.0f}-mile range"
+                f"{usable_miles:.0f}-mile range{reserve_note}"
             )
 
     if nodes[0].price_per_gallon != NO_FUEL_FOR_SALE:
         return
     first = min(nodes[1:], key=lambda node: node.mile_marker + node.offset_miles)
     first_miles = first.mile_marker + first.offset_miles
-    if first_miles > start_fuel_gallons * miles_per_gallon:
+    if first_miles > usable_start_gallons * miles_per_gallon:
         place = (
             "the route has no fuel station"
             if first is nodes[-1]
             else f"the first fuel station is at mile {first.mile_marker:.0f}"
         )
-        needed_gallons = first_miles / miles_per_gallon
+        needed_gallons = first_miles / miles_per_gallon + fuel_reserve_gallons
         raise UnreachableRoute(f"{place}; set start_fuel_gallons to at least {needed_gallons:.1f}")
 
 
@@ -105,8 +109,11 @@ def plan_fuel(
     miles_per_gallon: float,
     start_fuel_gallons: float = 0.0,
     cost_per_stop: float = 0.0,
+    fuel_reserve_gallons: float = 0.0,
 ) -> FuelPlan:
-    tank_capacity_miles = tank_capacity_gallons * miles_per_gallon
+    usable_gallons = tank_capacity_gallons - fuel_reserve_gallons
+    usable_start_gallons = start_fuel_gallons - fuel_reserve_gallons
+    usable_miles = usable_gallons * miles_per_gallon
     nodes = _undominated_candidates(candidates)
     if not nodes or nodes[0].mile_marker > 0 or nodes[0].offset_miles > 0:
         start = FuelCandidate(station=None, mile_marker=0.0, price_per_gallon=NO_FUEL_FOR_SALE)
@@ -115,25 +122,27 @@ def plan_fuel(
         station=None, mile_marker=total_distance_miles, price_per_gallon=Decimal("0")
     )
     nodes.append(destination)
-    _check_reachable(nodes, tank_capacity_miles, miles_per_gallon, start_fuel_gallons)
+    _check_reachable(
+        nodes, usable_miles, miles_per_gallon, usable_start_gallons, fuel_reserve_gallons
+    )
 
     miles = [node.mile_marker for node in nodes]
     offsets = [node.offset_miles for node in nodes]
     prices = [float(node.price_per_gallon) for node in nodes]
     last = len(nodes) - 1
     states: list[dict[float, tuple[float, int, float, float]]] = [{} for _ in nodes]
-    states[0][start_fuel_gallons] = (0.0, -1, 0.0, 0.0)
+    states[0][usable_start_gallons] = (0.0, -1, 0.0, 0.0)
 
     for index in range(last):
         price = prices[index]
         sells_fuel = price != float("inf")
         legs = []
-        for target in range(index + 1, bisect_right(miles, miles[index] + tank_capacity_miles)):
+        for target in range(index + 1, bisect_right(miles, miles[index] + usable_miles)):
             leg_miles = miles[target] - miles[index] + offsets[index] + offsets[target]
-            if leg_miles <= tank_capacity_miles + EPSILON_GALLONS:
+            if leg_miles <= usable_miles + EPSILON_GALLONS:
                 legs.append((states[target], leg_miles / miles_per_gallon, target < last))
         for arrival, (cost, *_) in states[index].items():
-            fill = tank_capacity_gallons - arrival
+            fill = usable_gallons - arrival
             fill_cost = cost + fill * price + cost_per_stop
             can_fill = sells_fuel and fill > EPSILON_GALLONS
             for bucket, needed, before_destination in legs:
@@ -149,9 +158,7 @@ def plan_fuel(
                 elif shortfall >= -EPSILON_GALLONS or index == 0:
                     _offer(bucket, max(-shortfall, 0.0), cost, (index, arrival, 0.0))
                 if can_fill and before_destination:
-                    _offer(
-                        bucket, tank_capacity_gallons - needed, fill_cost, (index, arrival, fill)
-                    )
+                    _offer(bucket, usable_gallons - needed, fill_cost, (index, arrival, fill))
 
     if not states[last]:
         raise UnreachableRoute(
