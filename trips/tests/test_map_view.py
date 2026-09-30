@@ -101,6 +101,7 @@ def test_the_map_draws_openstreetmap_tiles_under_the_route(client):
     response = client.get(f"/trips/{trip.id}/map/")
 
     assert b"tile.openstreetmap.org" in response.content
+    assert b'referrerPolicy: "strict-origin-when-cross-origin"' in response.content
 
 
 @pytest.mark.django_db
