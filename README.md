@@ -52,7 +52,8 @@ Request body:
 ```
 
 `start` and `finish` accept either a `"City, ST"` string or a raw `"lat,lng"` coordinate pair.
-`start_fuel_gallons` is optional (0–50, default 0) and represents fuel already in the tank.
+`start_fuel_gallons` is optional (0 up to the tank size, 50 gallons by default; default 0) and
+represents fuel already in the tank.
 With an empty tank the trip begins at the station nearest the start, so it needs a station
 within 10 miles of the start; otherwise the fuel must cover the drive to the first station
 plus the 5-gallon reserve (see **Assumptions**).
@@ -109,7 +110,8 @@ Response `200` (Chicago → Denver, trimmed to two of its five stops):
 - `gallons_purchased` and `total_cost` cover fuel bought on the trip, including the fuel
   burned on detours to stations and the reserve the truck still carries at the finish. Fuel
   already in the tank (`start_fuel_gallons`) is not counted.
-- Each stop reads like a pump receipt: gallons to 3 decimals, cost to the cent. The totals are
+- Each stop reads like a pump receipt: gallons to 3 decimals (rounded up, so rounding never
+  eats into the reserve), cost to the cent. The totals are
   the sum of those receipts, so they always add up, and a cached response reports exactly
   the same figures.
 
@@ -137,7 +139,7 @@ Every error response has the shape `{"error": "<code>", "detail": "..."}`.
 
 | Status | `error`                | Cause                                         |
 | ------ | ---------------------- | ---------------------------------------------- |
-| 400    | `validation_error`     | missing field, fuel outside 0–50, or start and finish resolve to the same point |
+| 400    | `validation_error`     | missing field, fuel below 0 or above the tank size, or start and finish resolve to the same point |
 | 404    | `location_not_found`   | start or finish could not be resolved          |
 | 422    | `location_outside_usa` | resolved coordinates are outside the continental USA |
 | 422    | `unreachable_route`    | a gap between stations exceeds the range left above the fuel reserve, or the first station is beyond the starting fuel; `detail` says where, and how much `start_fuel_gallons` would fix it |
